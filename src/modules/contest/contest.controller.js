@@ -181,15 +181,14 @@ exports.deleteContest = async (req, res) => {
     2. CONTEST FETCHING (Dream11 Style Logic)
 ========================================= */
 
-/**
- * @desc    Fetch available battles with Persistent Joined & Completed Status
- */
 exports.getAllContests = async (req, res) => {
   try {
     const isAdmin = req.user && req.user.role === "ADMIN";
+    
+    // 🔥 FIX: Include COMPLETED in the initial fetch so we can populate all tabs correctly
     const query = isAdmin
       ? {}
-      : { status: { $in: ["UPCOMING", "LIVE"] } };
+      : { status: { $in: ["UPCOMING", "LIVE", "COMPLETED"] } };
 
     const contests = await Contest.find(query)
       .sort({ startTime: 1 })
@@ -198,12 +197,10 @@ exports.getAllContests = async (req, res) => {
     const formattedContests = contests.map((contest) => {
       let computedPrizePool = 0;
 
-      // 🔥 DYNAMIC PRIZE CALCULATION
+      // 🔥 DYNAMIC PRIZE CALCULATION (Maintained from your original logic)
       if (contest.isSponsored) {
-        // Sponsored contest → fixed prize
         computedPrizePool = Number(contest.sponsorPrize) || 0;
       } else {
-        // 🔥 FIX: Based on total capacity for UI display
         const totalCollection =
           (contest.maxParticipants || 0) * (contest.entryFee || 0);
 
@@ -216,7 +213,7 @@ exports.getAllContests = async (req, res) => {
 
       return {
         ...contest,
-        prizePool: computedPrizePool, // 🔥 override DB value
+        prizePool: computedPrizePool, // Override DB value
 
         isJoined: Array.isArray(contest.participants)
           ? contest.participants.some(
@@ -232,10 +229,21 @@ exports.getAllContests = async (req, res) => {
       };
     });
 
+    // 🔥 THE CRITICAL FIX: Group the data by status
+    // This prevents "UPCOMING" contests from leaking into the "LIVE" tab
+    const live = formattedContests.filter(c => c.status === "LIVE");
+    const upcoming = formattedContests.filter(c => c.status === "UPCOMING");
+    const completed = formattedContests.filter(c => c.status === "COMPLETED");
+
     res.json({
       success: true,
       count: formattedContests.length,
-      data: formattedContests,
+      data: {
+        live,      // Send to the LIVE tab
+        upcoming,  // Send to the UPCOMING tab
+        completed, // Send to the COMPLETED tab
+        all: formattedContests // Fallback for general usage
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -244,7 +252,6 @@ exports.getAllContests = async (req, res) => {
     });
   }
 };
-
 /**
  * @desc    Get detailed contest info with Status Checks
  */
