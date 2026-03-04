@@ -22,7 +22,8 @@ require('events').EventEmitter.defaultMaxListeners = 25;
  */
 app.use(cors({
   origin: "*", 
-  methods: ["GET", "POST", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
 
@@ -63,7 +64,8 @@ const server = http.createServer(app);
 const io = initSocket(server, {
   cors: {
     origin: "*",
-    methods: ["GET", "POST"]
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
