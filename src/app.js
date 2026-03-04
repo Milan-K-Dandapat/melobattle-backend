@@ -45,7 +45,10 @@ app.use(
  */
 app.use(
   cors({
-    origin: "https://melobattle-frontend.vercel.app", 
+    origin: [
+      "https://melobattle-frontend.vercel.app", 
+      "https://battle.meloapp.in"
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
