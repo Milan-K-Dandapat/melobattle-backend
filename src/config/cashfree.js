@@ -40,7 +40,7 @@ const createOrder = async (amount, orderId, customerDetails) => {
       },
       order_meta: {
         // Fallback return URL if the popup is closed unexpectedly
-        return_url: `http://localhost:5173/wallet?order_id={order_id}`
+        return_url: `https://battle.meloapp.in/wallet?order_id={order_id}`
       }
     }
   };
