@@ -1,0 +1,48 @@
+const mongoose = require("mongoose");
+
+const participantSchema = new mongoose.Schema(
+  {
+    contestId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Contest",
+      required: true
+    },
+
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+
+    score: {
+      type: Number,
+      default: 0
+    },
+
+    accuracy: {
+      type: Number,
+      default: 0
+    },
+
+    completionTime: {
+      type: Number,
+      default: 0
+    },
+
+    rank: {
+      type: Number
+    },
+
+    prizeWon: {
+      type: Number,
+      default: 0
+    }
+  },
+  {
+    timestamps: true
+  }
+);
+
+participantSchema.index({ contestId: 1, userId: 1 }, { unique: true });
+
+module.exports = mongoose.model("Participant", participantSchema);
