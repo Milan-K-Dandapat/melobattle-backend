@@ -182,14 +182,17 @@ exports.deleteContest = async (req, res) => {
 ========================================= */
 
 /**
- * @desc    Fetch available battles grouped strictly by Time Status (Timer-Enforced)
+ * @desc    Fetch available battles with Persistent Joined & Completed Status
+ */
+/**
+ * @desc    Fetch available battles grouped by status (Upcoming, Live, Completed)
  * @route   GET /api/contest/all
  */
 exports.getAllContests = async (req, res) => {
   try {
     const isAdmin = req.user && req.user.role === "ADMIN";
     
-    // 1. Fetch all statuses
+    // 🔥 FIX: Include COMPLETED in the initial fetch so we can populate all tabs correctly
     const query = isAdmin
       ? {}
       : { status: { $in: ["UPCOMING", "LIVE", "COMPLETED"] } };
@@ -201,65 +204,52 @@ exports.getAllContests = async (req, res) => {
     const formattedContests = contests.map((contest) => {
       let computedPrizePool = 0;
 
-      // Maintain your dynamic prize logic
+      // 🔥 DYNAMIC PRIZE CALCULATION (Maintained from your original logic)
       if (contest.isSponsored) {
         computedPrizePool = Number(contest.sponsorPrize) || 0;
       } else {
-        const totalCollection = (contest.maxParticipants || 0) * (contest.entryFee || 0);
-        const houseCut = totalCollection * (Number(contest.commissionPercentage || 20) / 100);
+        const totalCollection =
+          (contest.maxParticipants || 0) * (contest.entryFee || 0);
+
+        const houseCut =
+          totalCollection *
+          (Number(contest.commissionPercentage || 20) / 100);
+
         computedPrizePool = totalCollection - houseCut;
       }
 
       return {
         ...contest,
-        prizePool: computedPrizePool,
+        prizePool: computedPrizePool, // Override DB value
+
         isJoined: Array.isArray(contest.participants)
-          ? contest.participants.some(id => id.toString() === req.user._id.toString())
+          ? contest.participants.some(
+              (id) => id.toString() === req.user._id.toString()
+            )
           : false,
+
         isCompletedByUser: Array.isArray(contest.completedParticipants)
-          ? contest.completedParticipants.some(id => id.toString() === req.user._id.toString())
-          : false
+          ? contest.completedParticipants.some(
+              (id) => id.toString() === req.user._id.toString()
+            )
+          : false,
       };
     });
 
-    /* ============================================================
-       🔥 THE ABSOLUTE FIX: TIMER-ENFORCED FILTERING
-       This code ignores if the arena is full and checks the CLOCK.
-    ============================================================ */
-    const now = new Date();
-
-    const upcoming = formattedContests.filter(c => {
-      const startTime = new Date(c.startTime);
-      // It ONLY goes to upcoming if the current time is BEFORE the start time
-      return now < startTime;
-    });
-
-    const live = formattedContests.filter(c => {
-      const startTime = new Date(c.startTime);
-      const durationMs = (c.duration || 15) * 60 * 1000;
-      const endTime = new Date(startTime.getTime() + durationMs);
-      
-      // It ONLY goes to live if the clock is currently between start and end
-      return now >= startTime && now <= endTime;
-    });
-
-    const completed = formattedContests.filter(c => {
-      const startTime = new Date(c.startTime);
-      const durationMs = (c.duration || 15) * 60 * 1000;
-      const endTime = new Date(startTime.getTime() + durationMs);
-
-      // It goes to completed if the status is archived or duration has passed
-      return c.status === "COMPLETED" || now > endTime;
-    });
+    // 🔥 THE CRITICAL FIX: Group the data by status
+    // This prevents "UPCOMING" contests from leaking into the "LIVE" tab
+    const live = formattedContests.filter(c => c.status === "LIVE");
+    const upcoming = formattedContests.filter(c => c.status === "UPCOMING");
+    const completed = formattedContests.filter(c => c.status === "COMPLETED");
 
     res.json({
       success: true,
       count: formattedContests.length,
       data: {
-        live,      
-        upcoming,  
-        completed, 
-        all: formattedContests 
+        live,      // Send to the LIVE tab
+        upcoming,  // Send to the UPCOMING tab
+        completed, // Send to the COMPLETED tab
+        all: formattedContests // Fallback for general usage
       },
     });
   } catch (error) {
