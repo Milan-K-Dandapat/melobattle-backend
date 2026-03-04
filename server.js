@@ -5,6 +5,7 @@ require("./src/config/redis");
 
 const express = require("express"); 
 const http = require("http");
+const cors = require("cors"); // Added CORS import
 const connectDB = require("./src/config/db");
 // Import the app instance
 const app = require("./src/app"); 
@@ -12,16 +13,22 @@ const app = require("./src/app");
 /**
  * 🔥 PERFORMANCE OVERRIDE
  * Fixes: MaxListenersExceededWarning detected in your terminal.
- * Required to prevent the memory leak warning when multiple jobs/sockets are attached.
  */
 require('events').EventEmitter.defaultMaxListeners = 25;
 
 /**
- * 🔥 PAYLOAD ACCELERATION PROTOCOL
- * Required to handle Base64 Image Strings from Laptop Uploads.
- * Increased to 10MB to ensure high-res banners pass through without termination.
+ * 🛠️ CORS CONFIGURATION
+ * Updated to allow all origins (*) so your live frontend can connect to this Render backend.
  */
-// IMPORTANT: These apply globally to the 'app' instance imported from src/app.js
+app.use(cors({
+  origin: "*", 
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
+
+/**
+ * 🔥 PAYLOAD ACCELERATION PROTOCOL
+ */
 app.use(express.json({ limit: "10mb" })); 
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
@@ -33,7 +40,6 @@ const { initSocket } = require("./src/sockets/socket.server");
 
 /**
  * 🛠️ FOLDER STRUCTURE SYNC
- * Based on your Explorer in image_404d3b.jpg, your jobs are located in ./src/jobs/
  */
 const startLifecycleJob = require("./src/jobs/contestLifecycle.job");
 const startContestReminders = require("./src/jobs/contestStart.job");
@@ -42,7 +48,6 @@ const startPrizeDistributionJob = require("./src/jobs/prizeDistribution.job");
 
 /**
  * 🔥 ARENA WATCHER PROTOCOL
- * Based on image_404d3b.jpg, this file is in ./src/utils/
  */
 const initContestCron = require("./src/utils/contestWatcher");
 
@@ -53,21 +58,24 @@ const server = http.createServer(app);
 
 /**
  * 3. Initialize Socket.io 
- * 🔥 Ensure credentials: true is set in initSocket to fix CORS errors
+ * Added CORS origin: "*" here as well to ensure the Socket handshake succeeds.
  */
-const io = initSocket(server);
+const io = initSocket(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 // 4. Make io accessible in Express controllers
 app.set("io", io);
 
 /**
  * 🔥 STARTUP PROTOCOL: ASYNC INITIALIZATION
- * This prevents "buffering timed out" by awaiting the database sync
- * before deploying background jobs.
  */
 const startServer = async () => {
   try {
-    // 5. Connect to MongoDB (Awaited to prevent job timeouts and buffer errors)
+    // 5. Connect to MongoDB
     await connectDB();
     console.log("🛡️ Database matrix sync complete. Ready for job deployment.");
 
@@ -77,21 +85,16 @@ const startServer = async () => {
         arg ? jobFunc(arg) : jobFunc();
         console.log(`✅ Job Started: ${name}`);
       } else {
-        // This triggers if a file in /src/jobs/ is missing an export
         console.warn(`⚠️ Warning: ${name} could not be started (Check exports in src/jobs/)`);
       }
     };
 
-    // Deploy jobs only after DB connection is confirmed established
+    // Deploy jobs
     startJob(startLifecycleJob, "Contest Lifecycle", io);
     startJob(startContestReminders, "Contest Reminders");
     startJob(startLeaderboardJob, "Leaderboard Sync");
     startJob(startPrizeDistributionJob, "Prize Distribution", io);
     
-    /**
-     * 🔥 DEPLOY ARENA WATCHER
-     * Ensures prize money stays RESERVED until the 15-minute timer hits zero.
-     */
     startJob(initContestCron, "Arena Time Watcher", io);
 
     /**
@@ -101,24 +104,21 @@ const startServer = async () => {
       console.log(`
       🚀 MELO BATTLE API IS LIVE!
       📡 Port: ${PORT}
-      🔗 URL: http://localhost:${PORT}
+      🔗 URL: https://melobattle-backend1.onrender.com
       ✨ Real-time sockets enabled.
       🖼️ Banner Protocol: Optimized for 10MB Matrix Sync.
-      🛠️ CORS configured for http://localhost:5173
+      🛠️ CORS configured for ALL ORIGINS (*)
       `);
     });
 
   } catch (error) {
     console.error("🔥 Server Initiation Failed:", error.message);
-    // Exit with failure if the database cannot be synced
     process.exit(1);
   }
 };
 
-// Execute the final startup sequence
 startServer();
 
-// Handle unhandled promise rejections to prevent silent crashes
 process.on("unhandledRejection", (err) => {
   console.error("🔥 Unhandled Rejection:", err.message);
 });
