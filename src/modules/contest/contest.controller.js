@@ -181,11 +181,15 @@ exports.deleteContest = async (req, res) => {
     2. CONTEST FETCHING (Dream11 Style Logic)
 ========================================= */
 
+/**
+ * @desc    Fetch available battles grouped strictly by Time Status
+ * @route   GET /api/contest/all
+ */
 exports.getAllContests = async (req, res) => {
   try {
     const isAdmin = req.user && req.user.role === "ADMIN";
     
-    // 🔥 FIX: Include COMPLETED in the initial fetch so we can populate all tabs correctly
+    // 1. Fetch all statuses
     const query = isAdmin
       ? {}
       : { status: { $in: ["UPCOMING", "LIVE", "COMPLETED"] } };
@@ -197,7 +201,7 @@ exports.getAllContests = async (req, res) => {
     const formattedContests = contests.map((contest) => {
       let computedPrizePool = 0;
 
-      // 🔥 DYNAMIC PRIZE CALCULATION (Maintained from your original logic)
+      // 🔥 DYNAMIC PRIZE CALCULATION
       if (contest.isSponsored) {
         computedPrizePool = Number(contest.sponsorPrize) || 0;
       } else {
@@ -213,7 +217,7 @@ exports.getAllContests = async (req, res) => {
 
       return {
         ...contest,
-        prizePool: computedPrizePool, // Override DB value
+        prizePool: computedPrizePool,
 
         isJoined: Array.isArray(contest.participants)
           ? contest.participants.some(
@@ -226,23 +230,50 @@ exports.getAllContests = async (req, res) => {
               (id) => id.toString() === req.user._id.toString()
             )
           : false,
+        
+        // Helper flag for frontend UI
+        isArenaFull: (contest.joinedCount || 0) >= (contest.maxParticipants || 0)
       };
     });
 
-    // 🔥 THE CRITICAL FIX: Group the data by status
-    // This prevents "UPCOMING" contests from leaking into the "LIVE" tab
-    const live = formattedContests.filter(c => c.status === "LIVE");
-    const upcoming = formattedContests.filter(c => c.status === "UPCOMING");
-    const completed = formattedContests.filter(c => c.status === "COMPLETED");
+    /* ============================================================
+       🔥 THE REAL FIX: STATUS FILTERING BY TIMER
+       This ensures that "Full" contests stay in UPCOMING 
+       until the startTime actually arrives.
+    ============================================================ */
+    const now = new Date();
+
+    const upcoming = formattedContests.filter(c => {
+      const startTime = new Date(c.startTime);
+      // It is upcoming if: Status is UPCOMING OR the clock hasn't hit the start time yet
+      return c.status === "UPCOMING" && now < startTime;
+    });
+
+    const live = formattedContests.filter(c => {
+      const startTime = new Date(c.startTime);
+      const durationMs = (c.duration || 15) * 60 * 1000;
+      const endTime = new Date(startTime.getTime() + durationMs);
+      
+      // It is live ONLY if: The clock is currently between start and end
+      return c.status === "LIVE" || (now >= startTime && now <= endTime);
+    });
+
+    const completed = formattedContests.filter(c => {
+      const startTime = new Date(c.startTime);
+      const durationMs = (c.duration || 15) * 60 * 1000;
+      const endTime = new Date(startTime.getTime() + durationMs);
+
+      return c.status === "COMPLETED" || now > endTime;
+    });
 
     res.json({
       success: true,
       count: formattedContests.length,
       data: {
-        live,      // Send to the LIVE tab
-        upcoming,  // Send to the UPCOMING tab
-        completed, // Send to the COMPLETED tab
-        all: formattedContests // Fallback for general usage
+        live,      
+        upcoming,  
+        completed, 
+        all: formattedContests 
       },
     });
   } catch (error) {
