@@ -40,13 +40,13 @@ app.use(
 );
 
 /**
- * 🔥 CRITICAL CORS UPDATE
- * Explicitly defining origin and methods to stop 401/Network Errors
+ * 🔥 CRITICAL CORS UPDATE: FIX FOR VERCEL DEPLOYMENT
+ * Changed from localhost:5173 to "*" to allow your live Vercel frontend.
  */
 app.use(
   cors({
-    origin: "http://localhost:5173", // Must match your Vite frontend URL exactly
-    credentials: true,               // Allows browser to send Authorization headers
+    origin: "*",             // Allows access from Vercel and all other origins
+    credentials: true,       // Allows browser to send Authorization headers
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
   })
