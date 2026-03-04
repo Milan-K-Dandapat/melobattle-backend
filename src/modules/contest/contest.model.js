@@ -259,6 +259,32 @@ contestSchema.pre("save", async function () {
   }
 });
 
+/**
+ * 🔥 DYNAMIC STATUS CALCULATOR
+ * Determines correct contest state based on time
+ */
+contestSchema.methods.getDynamicStatus = function () {
+  const now = new Date();
+
+  if (this.status === "COMPLETED" || this.status === "ARCHIVED") {
+    return this.status;
+  }
+
+  if (this.startTime && now < this.startTime) {
+    return "UPCOMING";
+  }
+
+  if (this.startTime && this.endTime && now >= this.startTime && now <= this.endTime) {
+    return "LIVE";
+  }
+
+  if (this.endTime && now > this.endTime) {
+    return "PROCESSING";
+  }
+
+  return this.status;
+};
+
 // 🔎 Optimized Indexes for high-speed performance
 contestSchema.index({ status: 1 });
 contestSchema.index({ category: 1 }); 

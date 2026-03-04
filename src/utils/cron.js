@@ -1,7 +1,8 @@
 const cron = require("node-cron");
 const User = require("../modules/user/user.model");
-const { getIO } = require("../sockets/socket.server"); // 🔥 Import socket instance
-
+const Contest = require("../modules/contest/contest.model"); // NEW
+const { closeContestAndDistributePrizes } = require("../modules/contest/contest.controller"); // NEW
+const { getIO } = require("../sockets/socket.server");
 /**
  * ARENA ELITE RESET PROTOCOLS
  * Automatically clears periodic rankings and notifies online players
@@ -80,6 +81,66 @@ cron.schedule("0 0 1 * *", async () => {
     console.log("✅ [CRON] Monthly rankings cleared.");
   } catch (err) {
     console.error("❌ [CRON] Monthly reset failed:", err);
+  }
+});
+
+/**
+ * 🔥 CONTEST ENGINE
+ * Runs every minute to manage contest lifecycle
+ */
+
+cron.schedule("* * * * *", async () => {
+  try {
+
+    const now = new Date();
+    const io = getIO();
+
+    /* ===============================
+       1️⃣ START UPCOMING CONTESTS
+    =============================== */
+
+    const upcomingContests = await Contest.find({
+      status: "UPCOMING",
+      startTime: { $lte: now }
+    });
+
+    for (const contest of upcomingContests) {
+
+      contest.status = "LIVE";
+      await contest.save();
+
+      if (io) {
+        io.emit("BATTLE_STARTED", { contestId: contest._id });
+      }
+
+      console.log(`🔥 Contest Started: ${contest.title}`);
+    }
+
+    /* ===============================
+       2️⃣ CLOSE LIVE CONTESTS
+    =============================== */
+
+    const finishedContests = await Contest.find({
+      status: "LIVE",
+      endTime: { $lte: now }
+    });
+
+    for (const contest of finishedContests) {
+
+      if (contest.isProcessed) continue; // Safety check
+
+      contest.status = "COMPLETED";
+      contest.isProcessed = true;
+
+      await contest.save();
+
+      await closeContestAndDistributePrizes(contest, io);
+
+      console.log(`🏆 Contest Completed: ${contest.title}`);
+    }
+
+  } catch (error) {
+    console.error("❌ Contest Engine Error:", error.message);
   }
 });
 

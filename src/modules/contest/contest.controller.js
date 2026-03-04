@@ -333,14 +333,33 @@ exports.getMyContests = async (req, res) => {
       participants: req.user._id
     }).sort({ startTime: -1 }).lean();
 
-    res.json({ 
-        success: true, 
-        data: contests.map(c => ({ 
-            ...c, 
-            isJoined: true,
-            isCompletedByUser: c.completedParticipants ? c.completedParticipants.some(id => id.toString() === req.user._id.toString()) : false
-        })) 
+    const now = new Date();
+
+    const updatedContests = contests.map(c => {
+
+      let status = c.status;
+
+      if (now < new Date(c.startTime)) {
+        status = "UPCOMING";
+      } else if (now >= new Date(c.startTime) && status !== "COMPLETED") {
+        status = "LIVE";
+      }
+
+      return {
+        ...c,
+        status,
+        isJoined: true,
+        isCompletedByUser: c.completedParticipants
+          ? c.completedParticipants.some(id => id.toString() === req.user._id.toString())
+          : false
+      };
     });
+
+    res.json({
+      success: true,
+      data: updatedContests
+    });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -539,7 +558,7 @@ exports.startBattle = async (req, res) => {
     res.json({ 
       success: true, 
       message: "Combat Initiated", 
-      status: contest.status 
+      status: contest.getDynamicStatus()
     });
   } catch (error) {
     console.error("🔥 Battle Start Failed:", error.message);
@@ -644,7 +663,7 @@ exports.forceCloseContest = async (req, res) => {
 async function closeContestAndDistributePrizes(contest, io) {
   try {
     // 1. Get all participants sorted by performance
-    const standings = await Participant.find({ contestId: contest._id })
+    const standings = await Participant.find({ contestId: contest._id }).lean()
       .sort({ score: -1, accuracy: -1, completionTime: 1 });
 
     if (!standings || standings.length === 0) return;
