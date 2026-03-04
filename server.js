@@ -18,10 +18,11 @@ require('events').EventEmitter.defaultMaxListeners = 25;
 
 /**
  * 🛠️ CORS CONFIGURATION
- * Updated to allow all origins (*) so your live frontend can connect to this Render backend.
+ * Updated to allow specific origins so your live frontend can connect to this Render backend.
+ * Wildcard "*" is strictly prohibited when credentials: true is enabled.
  */
 app.use(cors({
-  origin: "*", 
+  origin: ["https://melobattle-frontend.vercel.app", "https://battle.meloapp.in"], 
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
@@ -59,11 +60,11 @@ const server = http.createServer(app);
 
 /**
  * 3. Initialize Socket.io 
- * Added CORS origin: "*" here as well to ensure the Socket handshake succeeds.
+ * Updated CORS origin to match your production domains for successful handshakes.
  */
 const io = initSocket(server, {
   cors: {
-    origin: "*",
+    origin: ["https://melobattle-frontend.vercel.app", "https://battle.meloapp.in"],
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -109,7 +110,7 @@ const startServer = async () => {
       🔗 URL: https://melobattle-backend1.onrender.com
       ✨ Real-time sockets enabled.
       🖼️ Banner Protocol: Optimized for 10MB Matrix Sync.
-      🛠️ CORS configured for ALL ORIGINS (*)
+      🛠️ CORS configured for PRODUCTION DOMAINS
       `);
     });
 
