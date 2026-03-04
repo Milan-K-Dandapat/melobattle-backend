@@ -182,7 +182,7 @@ exports.deleteContest = async (req, res) => {
 ========================================= */
 
 /**
- * @desc    Fetch available battles grouped strictly by Time Status
+ * @desc    Fetch available battles grouped strictly by Time Status (Timer-Enforced)
  * @route   GET /api/contest/all
  */
 exports.getAllContests = async (req, res) => {
@@ -201,52 +201,37 @@ exports.getAllContests = async (req, res) => {
     const formattedContests = contests.map((contest) => {
       let computedPrizePool = 0;
 
-      // 🔥 DYNAMIC PRIZE CALCULATION
+      // Maintain your dynamic prize logic
       if (contest.isSponsored) {
         computedPrizePool = Number(contest.sponsorPrize) || 0;
       } else {
-        const totalCollection =
-          (contest.maxParticipants || 0) * (contest.entryFee || 0);
-
-        const houseCut =
-          totalCollection *
-          (Number(contest.commissionPercentage || 20) / 100);
-
+        const totalCollection = (contest.maxParticipants || 0) * (contest.entryFee || 0);
+        const houseCut = totalCollection * (Number(contest.commissionPercentage || 20) / 100);
         computedPrizePool = totalCollection - houseCut;
       }
 
       return {
         ...contest,
         prizePool: computedPrizePool,
-
         isJoined: Array.isArray(contest.participants)
-          ? contest.participants.some(
-              (id) => id.toString() === req.user._id.toString()
-            )
+          ? contest.participants.some(id => id.toString() === req.user._id.toString())
           : false,
-
         isCompletedByUser: Array.isArray(contest.completedParticipants)
-          ? contest.completedParticipants.some(
-              (id) => id.toString() === req.user._id.toString()
-            )
-          : false,
-        
-        // Helper flag for frontend UI
-        isArenaFull: (contest.joinedCount || 0) >= (contest.maxParticipants || 0)
+          ? contest.completedParticipants.some(id => id.toString() === req.user._id.toString())
+          : false
       };
     });
 
     /* ============================================================
-       🔥 THE REAL FIX: STATUS FILTERING BY TIMER
-       This ensures that "Full" contests stay in UPCOMING 
-       until the startTime actually arrives.
+       🔥 THE ABSOLUTE FIX: TIMER-ENFORCED FILTERING
+       This code ignores if the arena is full and checks the CLOCK.
     ============================================================ */
     const now = new Date();
 
     const upcoming = formattedContests.filter(c => {
       const startTime = new Date(c.startTime);
-      // It is upcoming if: Status is UPCOMING OR the clock hasn't hit the start time yet
-      return c.status === "UPCOMING" && now < startTime;
+      // It ONLY goes to upcoming if the current time is BEFORE the start time
+      return now < startTime;
     });
 
     const live = formattedContests.filter(c => {
@@ -254,8 +239,8 @@ exports.getAllContests = async (req, res) => {
       const durationMs = (c.duration || 15) * 60 * 1000;
       const endTime = new Date(startTime.getTime() + durationMs);
       
-      // It is live ONLY if: The clock is currently between start and end
-      return c.status === "LIVE" || (now >= startTime && now <= endTime);
+      // It ONLY goes to live if the clock is currently between start and end
+      return now >= startTime && now <= endTime;
     });
 
     const completed = formattedContests.filter(c => {
@@ -263,6 +248,7 @@ exports.getAllContests = async (req, res) => {
       const durationMs = (c.duration || 15) * 60 * 1000;
       const endTime = new Date(startTime.getTime() + durationMs);
 
+      // It goes to completed if the status is archived or duration has passed
       return c.status === "COMPLETED" || now > endTime;
     });
 
