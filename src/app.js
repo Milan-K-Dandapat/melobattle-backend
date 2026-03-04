@@ -45,8 +45,8 @@ app.use(
  */
 app.use(
   cors({
-    origin: "*",             // Allows access from Vercel and all other origins
-    credentials: true,       // Allows browser to send Authorization headers
+    origin: "https://melobattle-frontend.vercel.app", 
+    credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]
   })
