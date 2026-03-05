@@ -47,7 +47,8 @@ app.use(
   cors({
     origin: [
       "https://melobattle-frontend.vercel.app", 
-      "https://battle.meloapp.in"
+      "https://battle.meloapp.in",
+      "http://localhost:5173"
     ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
