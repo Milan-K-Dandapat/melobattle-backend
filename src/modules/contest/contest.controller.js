@@ -76,19 +76,24 @@ exports.createContest = async (req, res) => {
       }
     }
 
-    const contest = await Contest.create({
-      ...req.body,
-      category: cleanCategory,
-      duration: Number(duration) || 15,
-      questions: questions || [],
-      totalCollection,
-      prizePool: calculatedPrizePool,
-      winnerPercentage: winnerPercentage ?? 60,
-      status: req.body.status || "UPCOMING",
-      joinedCount: 0,
-      participants: [],
-      completedParticipants: []
-    });
+ const start = new Date(startTime);
+const endTime = new Date(start.getTime() + (Number(duration) || 15) * 60000);
+
+const contest = await Contest.create({
+  ...req.body,
+  category: cleanCategory,
+  duration: Number(duration) || 15,
+  startTime: start,
+  endTime: endTime,
+  questions: questions || [],
+  totalCollection,
+  prizePool: calculatedPrizePool,
+  winnerPercentage: winnerPercentage ?? 60,
+  status: req.body.status || "UPCOMING",
+  joinedCount: 0,
+  participants: [],
+  completedParticipants: []
+});
 
     const io = req.app.get("io");
     if (io) {
@@ -187,50 +192,80 @@ exports.deleteContest = async (req, res) => {
 exports.getAllContests = async (req, res) => {
   try {
     const isAdmin = req.user && req.user.role === "ADMIN";
-    const query = isAdmin
-      ? {}
-      : { status: { $in: ["UPCOMING", "LIVE"] } };
+    const now = new Date();
+
+const query = isAdmin
+  ? {}
+  : {
+      status: { $nin: ["ARCHIVED"] }
+    };
 
     const contests = await Contest.find(query)
       .sort({ startTime: 1 })
       .lean();
 
-    const formattedContests = contests.map((contest) => {
-      let computedPrizePool = 0;
+   const formattedContests = contests.map((contest) => {
 
-      // 🔥 DYNAMIC PRIZE CALCULATION
-      if (contest.isSponsored) {
-        // Sponsored contest → fixed prize
-        computedPrizePool = Number(contest.sponsorPrize) || 0;
-      } else {
-        // 🔥 FIX: Based on total capacity for UI display
-        const totalCollection =
-          (contest.maxParticipants || 0) * (contest.entryFee || 0);
+  const dynamicStatus = (() => {
+    const now = new Date();
 
-        const houseCut =
-          totalCollection *
-          (Number(contest.commissionPercentage || 20) / 100);
+    if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
+      return contest.status;
+    }
 
-        computedPrizePool = totalCollection - houseCut;
-      }
+    if (contest.startTime && now < new Date(contest.startTime)) {
+      return "UPCOMING";
+    }
 
-      return {
-        ...contest,
-        prizePool: computedPrizePool, // 🔥 override DB value
+    if (
+      contest.startTime &&
+      contest.endTime &&
+      now >= new Date(contest.startTime) &&
+      now <= new Date(contest.endTime)
+    ) {
+      return "LIVE";
+    }
 
-        isJoined: Array.isArray(contest.participants)
-          ? contest.participants.some(
-              (id) => id.toString() === req.user._id.toString()
-            )
-          : false,
+    if (contest.endTime && now > new Date(contest.endTime)) {
+      return "PROCESSING";
+    }
 
-        isCompletedByUser: Array.isArray(contest.completedParticipants)
-          ? contest.completedParticipants.some(
-              (id) => id.toString() === req.user._id.toString()
-            )
-          : false,
-      };
-    });
+    return contest.status;
+  })();
+
+  let computedPrizePool = 0;
+
+  if (contest.isSponsored) {
+    computedPrizePool = Number(contest.sponsorPrize) || 0;
+  } else {
+    const totalCollection =
+      (contest.maxParticipants || 0) * (contest.entryFee || 0);
+
+    const houseCut =
+      totalCollection *
+      (Number(contest.commissionPercentage || 20) / 100);
+
+    computedPrizePool = totalCollection - houseCut;
+  }
+
+  return {
+    ...contest,
+    status: dynamicStatus, // 🔥 important fix
+    prizePool: computedPrizePool,
+
+    isJoined: Array.isArray(contest.participants)
+      ? contest.participants.some(
+          (id) => id.toString() === req.user._id.toString()
+        )
+      : false,
+
+    isCompletedByUser: Array.isArray(contest.completedParticipants)
+      ? contest.completedParticipants.some(
+          (id) => id.toString() === req.user._id.toString()
+        )
+      : false
+  };
+});
 
     res.json({
       success: true,
@@ -340,10 +375,14 @@ exports.getMyContests = async (req, res) => {
       let status = c.status;
 
       if (now < new Date(c.startTime)) {
-        status = "UPCOMING";
-      } else if (now >= new Date(c.startTime) && status !== "COMPLETED") {
-        status = "LIVE";
-      }
+  status = "UPCOMING";
+} 
+else if (now >= new Date(c.startTime) && now <= new Date(c.endTime)) {
+  status = "LIVE";
+}
+else if (now > new Date(c.endTime) && status !== "COMPLETED") {
+  status = "PROCESSING";
+}
 
       return {
         ...c,
@@ -545,15 +584,26 @@ exports.startBattle = async (req, res) => {
       return res.status(404).json({ success: false, message: "Arena not found" });
     }
 
-    if (contest.status === "UPCOMING") {
-      contest.status = "LIVE";
-      await contest.save();
+  const now = new Date();
 
-      const io = req.app.get("io");
-      if (io) {
-        io.emit("BATTLE_STARTED", { contestId: contest._id });
-      }
-    }
+if (now < new Date(contest.startTime)) {
+  return res.status(400).json({
+    success: false,
+    message: "Battle has not started yet"
+  });
+}
+
+if (now > new Date(contest.endTime)) {
+  return res.status(400).json({
+    success: false,
+    message: "Contest already ended"
+  });
+}
+
+const io = req.app.get("io");
+if (io) {
+  io.emit("BATTLE_STARTED", { contestId: contest._id });
+}
 
     res.json({ 
       success: true, 

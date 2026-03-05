@@ -89,7 +89,7 @@ cron.schedule("0 0 1 * *", async () => {
  * Runs every minute to manage contest lifecycle
  */
 
-cron.schedule("* * * * *", async () => {
+cron.schedule("*/20 * * * * *", async () => {
   try {
 
     const now = new Date();
@@ -100,9 +100,10 @@ cron.schedule("* * * * *", async () => {
     =============================== */
 
     const upcomingContests = await Contest.find({
-      status: "UPCOMING",
-      startTime: { $lte: now }
-    });
+  status: "UPCOMING",
+  startTime: { $lte: now },
+  endTime: { $gt: now } // extra safety
+});
 
     for (const contest of upcomingContests) {
 
@@ -129,12 +130,12 @@ cron.schedule("* * * * *", async () => {
 
       if (contest.isProcessed) continue; // Safety check
 
-      contest.status = "COMPLETED";
-      contest.isProcessed = true;
-
-      await contest.save();
-
       await closeContestAndDistributePrizes(contest, io);
+
+contest.status = "COMPLETED";
+contest.isProcessed = true;
+
+await contest.save();
 
       console.log(`🏆 Contest Completed: ${contest.title}`);
     }

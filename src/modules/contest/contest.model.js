@@ -88,9 +88,10 @@ const contestSchema = new mongoose.Schema(
 
     // 🔥 NEW: UNIQUE BATTLE CODE FOR SEARCHING
     battleCode: {
-      type: String,
-      default: () => "BTL-" + Math.random().toString(36).substring(2, 8).toUpperCase()
-    },
+  type: String,
+  unique: true,
+  default: () => "BTL-" + Date.now().toString(36).toUpperCase()
+},
 
     // 🔥 CATEGORY SYNC: ENUM REMOVED to allow Dynamic Database Categories!
     category: {
@@ -144,10 +145,11 @@ const contestSchema = new mongoose.Schema(
     },
 
     participants: [{
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      default: []
-    }],
+  type: [mongoose.Schema.Types.ObjectId],
+  ref: "User",
+  default: [],
+  index: true
+}],
 
     // 🔥 COMPLETION TRACKER: Stores IDs of users who finished the battle
     completedParticipants: [{
@@ -278,9 +280,13 @@ contestSchema.methods.getDynamicStatus = function () {
     return "LIVE";
   }
 
-  if (this.endTime && now > this.endTime) {
-    return "PROCESSING";
-  }
+  if (this.endTime && now > this.endTime && !this.isProcessed) {
+  return "PROCESSING";
+}
+
+if (this.isProcessed) {
+  return "COMPLETED";
+}
 
   return this.status;
 };
