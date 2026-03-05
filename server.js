@@ -29,6 +29,15 @@ app.use(cors({
 }));
 
 /**
+ * 🚀 RENDER KEEP-ALIVE / HEALTH CHECK
+ * This route handles the pings from cron-job.org every 10 minutes.
+ * It is placed here to respond quickly and keep the Render instance from sleeping.
+ */
+app.get("/health", (req, res) => {
+  res.status(200).send("Melo Battle Server is Awake 🚀");
+});
+
+/**
  * 🔥 PAYLOAD ACCELERATION PROTOCOL
  */
 app.use(express.json({ limit: "10mb" })); 
@@ -111,6 +120,7 @@ const startServer = async () => {
       ✨ Real-time sockets enabled.
       🖼️ Banner Protocol: Optimized for 10MB Matrix Sync.
       🛠️ CORS configured for PRODUCTION DOMAINS
+      🛠️ Health Check Route: /health (Active for Cron-job.org)
       `);
     });
 
