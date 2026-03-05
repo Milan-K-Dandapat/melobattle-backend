@@ -12,11 +12,30 @@ const Transaction = require('../../src/modules/wallet/transaction.model');
 const { closeContestAndDistributePrizes } = require('../../src/modules/contest/contest.controller');
 
 const initContestCron = (io) => {
-  // Runs every 1 minute to check for expired timers
+  // Runs every 1 minute to check for expired timers and start new contests
   cron.schedule('* * * * *', async () => {
     try {
       const now = new Date();
       
+      // --- PART 1: AUTO-START UPCOMING CONTESTS ---
+      // This solves the issue where battles don't show up until redeploy
+      const upcomingContests = await Contest.find({ 
+        status: "UPCOMING",
+        startTime: { $lte: now } 
+      });
+
+      for (const contest of upcomingContests) {
+        console.log(`🚀 Arena Starting: ${contest.title}`);
+        contest.status = "LIVE";
+        await contest.save();
+        
+        // Notify frontend in real-time that a new battle is live
+        if (io) {
+          io.emit("battleStarted", { contestId: contest._id, title: contest.title });
+        }
+      }
+
+      // --- PART 2: FINALIZE LIVE CONTESTS (Your Original Logic) ---
       // 1. Find all contests currently in "LIVE" state
       const liveContests = await Contest.find({ status: "LIVE" });
 
