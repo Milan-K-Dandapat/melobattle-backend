@@ -432,32 +432,29 @@ exports.exportContestCSV = async (req, res) => {
 
     const participants = await Participant.find({ contestId: id })
       .populate("userId", "name username email")
-      .sort({ rank: 1 })
+      .sort({ score: -1 }) // sort by score instead of rank
       .lean();
 
-    if (!participants || participants.length === 0) {
+    if (!participants.length) {
       return res.status(404).json({
         success: false,
-        message: "No participants found for this contest"
+        message: "No warriors found in this arena"
       });
     }
 
-    // CSV HEADER
-    let csv =
-      "Rank,Name,Username,Email,Score,Accuracy,TimeTaken,PrizeWon\n";
+    let csv = "Rank,Name,Username,Email,Score,Accuracy,CompletionTime\n";
 
-    participants.forEach((p) => {
-      csv += `${p.rank || ""},${p.userId?.name || ""},${p.userId?.username || ""},${p.userId?.email || ""},${p.score || 0},${p.accuracy || 0},${p.timeTaken || 0},${p.prizeWon || 0}\n`;
+    participants.forEach((p, index) => {
+      csv += `${index + 1},${p.userId?.name || ""},${p.userId?.username || ""},${p.userId?.email || ""},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0}\n`;
     });
 
-    // Tell browser to download file
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
       `attachment; filename=contest_${id}_leaderboard.csv`
     );
 
-    res.status(200).send(csv);
+    res.send(csv);
 
   } catch (error) {
     console.error("CSV Export Error:", error.message);
