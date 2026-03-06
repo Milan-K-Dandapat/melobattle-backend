@@ -6,6 +6,7 @@ require("./src/config/redis");
 const express = require("express"); 
 const http = require("http");
 const cors = require("cors"); // Added CORS import
+const rateLimit = require("express-rate-limit");
 const connectDB = require("./src/config/db");
 // Import the app instance
 const app = require("./src/app"); 
@@ -14,7 +15,7 @@ const app = require("./src/app");
  * 🔥 PERFORMANCE OVERRIDE
  * Fixes: MaxListenersExceededWarning detected in your terminal.
  */
-require('events').EventEmitter.defaultMaxListeners = 25;
+require('events').EventEmitter.defaultMaxListeners = 10;
 
 /**
  * 🛠️ CORS CONFIGURATION
@@ -22,11 +23,27 @@ require('events').EventEmitter.defaultMaxListeners = 25;
  * Wildcard "*" is strictly prohibited when credentials: true is enabled.
  */
 app.use(cors({
-  origin: ["https://melobattle-frontend.vercel.app", "https://battle.meloapp.in"], 
+  origin: [
+    "https://melobattle-frontend.vercel.app",
+    "https://battle.meloapp.in",
+    "http://localhost:3000",
+    "http://localhost:5173"
+  ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true
 }));
+
+// 🔒 API Rate Limiter (Protect server from spam / loops)
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 120, // max requests per IP
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+app.use("/api", limiter);
 
 /**
  * 🚀 RENDER KEEP-ALIVE / HEALTH CHECK

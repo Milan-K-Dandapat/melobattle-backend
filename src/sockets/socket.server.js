@@ -8,33 +8,36 @@ let io;
  * Initializes the Socket.io instance and attaches it to the HTTP server.
  */
 const initSocket = (server) => {
+
   io = new Server(server, {
     cors: {
-      // 🔥 THE CRITICAL FIX: Explicitly allow the frontend URL
-      // Wildcard "*" is NOT allowed when credentials are true
       origin: [
-  "http://localhost:5173",
-  "https://battle.meloapp.in"
-],
+        "http://localhost:5173",
+        "https://battle.meloapp.in",
+        "https://melobattle-frontend.vercel.app"
+      ],
       methods: ["GET", "POST"],
       credentials: true
     },
-    // Production settings for high concurrency
+
     pingTimeout: 60000,
-    pingInterval: 25000
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e6
   });
 
   io.on("connection", (socket) => {
-    // 🔥 Identify the user connecting to join their personal room
-    const userId = socket.handshake.query.userId;
+
+    const userId = socket.handshake.auth?.userId || socket.handshake.query?.userId;
+
     if (userId) {
       socket.join(userId);
-      console.log(`🚀 New Connection: ${socket.id} | User ID: ${userId}`);
+      socket.data.userId = userId;
+      console.log(`🚀 User Connected: ${userId} | Socket: ${socket.id}`);
     } else {
-      console.log(`🚀 New Guest Connection: ${socket.id}`);
+      console.log(`🚀 Guest Connected: ${socket.id}`);
     }
 
-    // Register Modular Handlers
+    // Register modular socket handlers
     quizHandler(io, socket);
     matchSocket(io, socket);
 
@@ -42,13 +45,14 @@ const initSocket = (server) => {
       console.log(`❌ User Disconnected (${socket.id}): ${reason}`);
     });
 
-    // Error handling for individual sockets
     socket.on("error", (err) => {
       console.error(`Socket Error (${socket.id}):`, err);
     });
+
   });
 
   console.log("✅ Socket.io Server Initialized with Elite CORS Policy");
+
   return io;
 };
 
