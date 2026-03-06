@@ -435,7 +435,7 @@ exports.exportContestCSV = async (req, res) => {
     const contestId = req.params.id;
 
     const participants = await Participant.find({ contestId })
-      .populate("userId", "username email")
+      .populate("userId", "name username email")
       .sort({ score: -1, accuracy: -1, completionTime: 1 })
       .lean();
 
@@ -446,13 +446,12 @@ exports.exportContestCSV = async (req, res) => {
       });
     }
 
-    // CSV HEADER
     let csv =
       "Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon\n";
 
     participants.forEach((p, index) => {
-      const username = p.userId?.username || "";
-      const email = p.userId?.email || "";
+      const username = p.userId?.username || p.userId?.name || "Warrior";
+      const email = p.userId?.email || "N/A";
 
       csv += `${index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0}\n`;
     });
