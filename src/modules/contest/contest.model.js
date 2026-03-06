@@ -144,12 +144,12 @@ const contestSchema = new mongoose.Schema(
       default: 0
     },
 
-    participants: [{
+    participants: {
   type: [mongoose.Schema.Types.ObjectId],
   ref: "User",
   default: [],
   index: true
-}],
+},
 
     // 🔥 COMPLETION TRACKER: Stores IDs of users who finished the battle
     completedParticipants: [{
