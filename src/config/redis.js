@@ -3,10 +3,15 @@ const Redis = require("ioredis");
 let redis;
 
 if (process.env.REDIS_URL) {
-  // Production (Render)
+  // Production (Render - Internal)
   redis = new Redis(process.env.REDIS_URL, {
-    tls: {},
-    maxRetriesPerRequest: null
+    // 🚨 FIX: Removed tls: {} because your URL is redis:// (not rediss://)
+    connectTimeout: 10000, 
+    maxRetriesPerRequest: null,
+    retryStrategy(times) {
+      const delay = Math.min(times * 50, 2000);
+      return delay;
+    }
   });
 } else {
   // Local development
