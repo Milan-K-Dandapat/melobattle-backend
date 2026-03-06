@@ -436,7 +436,7 @@ exports.exportContestCSV = async (req, res) => {
     const contestId = new mongoose.Types.ObjectId(req.params.id);
 
     const participants = await Participant.find({ contestId })
-      .populate("userId", "name username email")
+      .populate("userId", "username avatar rating points totalWins")
       .sort({ score: -1 })
       .lean();
 
@@ -447,25 +447,42 @@ exports.exportContestCSV = async (req, res) => {
       });
     }
 
-    let csv = "Rank,Name,Username,Email,Score,Accuracy,CompletionTime\n";
+    const fields = [
+      "Rank",
+      "Username",
+      "Score",
+      "Accuracy",
+      "CompletionTime",
+      "PrizeWon"
+    ];
 
-    participants.forEach((p, index) => {
-      csv += `${index + 1},${p.userId?.name || ""},${p.userId?.username || ""},${p.userId?.email || ""},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0}\n`;
-    });
+    const rows = participants.map((p, index) => ({
+      Rank: index + 1,
+      Username: p.userId?.username || "Unknown",
+      Score: p.score || 0,
+      Accuracy: p.accuracy || 0,
+      CompletionTime: p.completionTime || 0,
+      PrizeWon: p.prizeWon || 0
+    }));
+
+    const csv = [
+      fields.join(","),
+      ...rows.map(r => Object.values(r).join(","))
+    ].join("\n");
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=contest_${id}_leaderboard.csv`
+      `attachment; filename=contest_${contestId}.csv`
     );
 
     res.send(csv);
 
   } catch (error) {
-    console.error("CSV Export Error:", error.message);
+    console.error("CSV Export Error:", error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: "CSV export failed"
     });
   }
 };
