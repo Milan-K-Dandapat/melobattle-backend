@@ -319,7 +319,11 @@ exports.getContestById = async (req, res) => {
     const userId = req.user._id.toString();
     // 🔥 Fetch live battle roster
 const roster = await Participant.find({ contestId: contest._id })
-  .populate("userId", "username name avatar rating points")
+  .populate({
+  path: "userId",
+  select: "username name avatar rating points",
+  model: "User"
+})
   .sort({ score: -1, accuracy: -1, completionTime: 1 })
   .lean();
 
@@ -428,11 +432,12 @@ else if (now > new Date(c.endTime) && status !== "COMPLETED") {
  */
 exports.exportContestCSV = async (req, res) => {
   try {
-    const { id } = req.params;
+    const mongoose = require("mongoose");
+    const contestId = new mongoose.Types.ObjectId(req.params.id);
 
-    const participants = await Participant.find({ contestId: id })
+    const participants = await Participant.find({ contestId })
       .populate("userId", "name username email")
-      .sort({ score: -1 }) // sort by score instead of rank
+      .sort({ score: -1 })
       .lean();
 
     if (!participants.length) {

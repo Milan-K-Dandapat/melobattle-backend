@@ -84,7 +84,7 @@ router.delete(
   contestController.deleteContest
 );
 
-router.get("/:id", protect, contestController.getContestById);
 router.get("/:id/export", protect, roleMiddleware("ADMIN"), contestController.exportContestCSV);
+router.get("/:id", protect, contestController.getContestById);
 
 module.exports = router;
