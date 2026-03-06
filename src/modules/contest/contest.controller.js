@@ -287,7 +287,10 @@ exports.getContestById = async (req, res) => {
   try {
     const contest = await Contest.findById(req.params.id)
       // 🔥 FIX: Added 'rating', 'points', 'dailyPoints' to populate to ensure XP is sent
-      .populate("participants", "username name avatar rating points dailyPoints")
+      .populate({
+  path: "participants",
+  select: "_id username name avatar rating points totalWins"
+})
       .lean();
 
     if (!contest) {
@@ -314,6 +317,20 @@ exports.getContestById = async (req, res) => {
     }
 
     const userId = req.user._id.toString();
+    // 🔥 Fetch live battle roster
+const roster = await Participant.find({ contestId: contest._id })
+  .populate("userId", "username name avatar rating points")
+  .sort({ score: -1, accuracy: -1, completionTime: 1 })
+  .lean();
+
+const formattedRoster = roster.map((p, index) => ({
+  rank: index + 1,
+  userId: p.userId?._id,
+  username: p.userId?.username || p.userId?.name || "Warrior",
+  avatar: p.userId?.avatar || "",
+  xp: p.userId?.rating || 0,
+  score: p.score || 0
+}));
 
     const isJoined = Array.isArray(contest.participants)
   ? contest.participants.some(p =>
@@ -328,11 +345,12 @@ exports.getContestById = async (req, res) => {
     res.json({
       success: true,
       data: {
-        ...contest,
-        prizePool: computedPrizePool, // 🔥 override DB value
-        isJoined,
-        isCompletedByUser
-      }
+  ...contest,
+  prizePool: computedPrizePool,
+  roster: formattedRoster,
+  isJoined,
+  isCompletedByUser
+}
     });
 
   } catch (error) {
@@ -411,18 +429,44 @@ else if (now > new Date(c.endTime) && status !== "COMPLETED") {
 exports.exportContestCSV = async (req, res) => {
   try {
     const { id } = req.params;
-    // Fetch all participants for this contest and populate their user details
+
     const participants = await Participant.find({ contestId: id })
       .populate("userId", "name username email")
-      .sort({ rank: 1 }) // Sort by rank, highest first
+      .sort({ rank: 1 })
       .lean();
 
-    res.json({ success: true, data: participants });
+    if (!participants || participants.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No participants found for this contest"
+      });
+    }
+
+    // CSV HEADER
+    let csv =
+      "Rank,Name,Username,Email,Score,Accuracy,TimeTaken,PrizeWon\n";
+
+    participants.forEach((p) => {
+      csv += `${p.rank || ""},${p.userId?.name || ""},${p.userId?.username || ""},${p.userId?.email || ""},${p.score || 0},${p.accuracy || 0},${p.timeTaken || 0},${p.prizeWon || 0}\n`;
+    });
+
+    // Tell browser to download file
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=contest_${id}_leaderboard.csv`
+    );
+
+    res.status(200).send(csv);
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error("CSV Export Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
-
 /**
  * 🔥 UPDATED: SECURITY-ENFORCED QUESTION DISPATCHER
  * @route   GET /api/contest/battle/:id
@@ -680,29 +724,54 @@ exports.submitBattle = async (req, res) => {
  */
 exports.forceCloseContest = async (req, res) => {
   try {
-    const contest = await Contest.findById(req.params.id);
-    if (!contest) return res.status(404).json({ success: false, message: "Arena not found" });
 
-    if (contest.status === "COMPLETED") {
-       return res.status(400).json({ success: false, message: "Arena already closed and processed" });
+    // 🔒 ADMIN SECURITY CHECK (ADD THIS HERE)
+    if (req.user?.role !== "ADMIN") {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized action"
+      });
     }
 
-    // 1. Finalize status
+    const contest = await Contest.findById(req.params.id);
+
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Arena not found"
+      });
+    }
+
+    if (contest.status === "COMPLETED") {
+      return res.status(400).json({
+        success: false,
+        message: "Arena already closed and processed"
+      });
+    }
+
+    // 1️⃣ Finalize status
     contest.status = "COMPLETED";
     await contest.save();
 
-    // 2. Finalize Ledger: RESERVED -> SUCCESS
+    // 2️⃣ Finalize Ledger: RESERVED -> SUCCESS
     await Transaction.updateMany(
       { referenceId: contest._id.toString(), type: "ENTRY_FEE", status: "RESERVED" },
       { $set: { status: "SUCCESS" } }
     );
 
-    // 3. Official Payout
+    // 3️⃣ Official Payout
     await closeContestAndDistributePrizes(contest, req.app.get("io"));
 
-    res.json({ success: true, message: "Arena forced to archive. Payouts dispatched." });
+    res.json({
+      success: true,
+      message: "Arena forced to archive. Payouts dispatched."
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -713,7 +782,7 @@ exports.forceCloseContest = async (req, res) => {
 async function closeContestAndDistributePrizes(contest, io) {
   try {
     // 1. Get all participants sorted by performance
-    const standings = await Participant.find({ contestId: contest._id }).lean()
+    const standings = await Participant.find({ contestId: contest._id })
       .sort({ score: -1, accuracy: -1, completionTime: 1 });
 
     if (!standings || standings.length === 0) return;
