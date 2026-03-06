@@ -324,11 +324,11 @@ const roster = await Participant.find({ contestId: contest._id })
   select: "username name avatar rating points",
   model: "User"
 })
-  .sort({ score: -1, accuracy: -1, completionTime: 1 })
+  .sort({ rank: 1 })
   .lean();
 
 const formattedRoster = roster.map((p, index) => ({
-  rank: index + 1,
+  rank: p.rank || index + 1,
   userId: p.userId?._id,
   username: p.userId?.username || p.userId?.name || "Warrior",
   avatar: p.userId?.avatar || "",
@@ -436,7 +436,7 @@ exports.exportContestCSV = async (req, res) => {
 
     const participants = await Participant.find({ contestId })
       .populate("userId", "name username email")
-      .sort({ score: -1, accuracy: -1, completionTime: 1 })
+      .sort({ rank: 1 })
       .lean();
 
     if (!participants || participants.length === 0) {
@@ -453,7 +453,7 @@ exports.exportContestCSV = async (req, res) => {
       const username = p.userId?.username || p.userId?.name || "Warrior";
       const email = p.userId?.email || "N/A";
 
-      csv += `${index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
+      csv += `${p.rank || index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
     });
 
     res.setHeader("Content-Type", "text/csv");
@@ -691,7 +691,7 @@ exports.submitBattle = async (req, res) => {
     }
 
     // 1. FIRST SAVE PARTICIPANT SCORE
-   await Participant.findOneAndUpdate(
+  await Participant.findOneAndUpdate(
   { contestId, userId },
   {
     score,
@@ -707,6 +707,8 @@ exports.submitBattle = async (req, res) => {
   }
 );
 
+// 🔥 Recalculate leaderboard immediately
+await leaderboardService.getTopPlayers(contestId);
     // 2. THEN LOCK CONTEST FOR THIS USER
     contest.completedParticipants.push(userId);
     
@@ -796,7 +798,8 @@ async function closeContestAndDistributePrizes(contest, io) {
   try {
     // 1. Get all participants sorted by performance
     const standings = await Participant.find({ contestId: contest._id })
-      .sort({ score: -1, accuracy: -1, completionTime: 1 });
+      .sort({ rank: 1, score: -1, accuracy: -1, completionTime: 1 })
+      .lean();
 
     if (!standings || standings.length === 0) return;
 

@@ -68,6 +68,11 @@ const participantSchema = new mongoose.Schema(
 participantSchema.index({ contestId: 1, userId: 1 }, { unique: true });
 
 /* 🔥 leaderboard performance index */
-participantSchema.index({ contestId: 1, score: -1 });
+participantSchema.index({
+  contestId: 1,
+  score: -1,
+  accuracy: -1,
+  completionTime: 1
+});
 
 module.exports = mongoose.model("Participant", participantSchema);

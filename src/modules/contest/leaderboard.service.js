@@ -131,7 +131,6 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
         score: -1,
         accuracy: -1,
         completionTime: 1,
-        createdAt: 1
       })
       .limit(limit)
       .lean();
@@ -202,14 +201,43 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
           prizes[0] += remainingAmount;
         }
 
-        return rankedPlayers.map((player, index) => ({
-          ...player,
-          prizeWon: prizes[index] || 0
-        }));
+        const finalPlayers = rankedPlayers.map((player, index) => ({
+  ...player,
+  prizeWon: prizes[index] || 0
+}));
+
+// 🔥 SAVE RANK + PRIZE TO DB
+for (const player of finalPlayers) {
+  await Participant.findOneAndUpdate(
+    { contestId: objectContestId, userId: player.userId },
+    {
+      $set: {
+        rank: player.rank,
+        prizeWon: player.prizeWon
+      }
+    }
+  );
+}
+
+return finalPlayers;
+
       }
     }
 
-    return rankedPlayers;
+    // 🔥 Save ranks even if prize pool is zero
+for (const player of rankedPlayers) {
+  await Participant.findOneAndUpdate(
+    { contestId: objectContestId, userId: player.userId },
+    {
+      $set: {
+        rank: player.rank,
+        prizeWon: 0
+      }
+    }
+  );
+}
+
+return rankedPlayers;
 
   } catch (error) {
     console.error("Get Leaderboard Error:", error);

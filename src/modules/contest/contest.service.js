@@ -137,6 +137,17 @@ exports.joinContest = async (userId, contestId, io) => {
       )
     ) {
       contest.participants.push(userId);
+
+      const Participant = require("./participant.model");
+
+await Participant.create([{
+  contestId: contest._id,
+  userId: userId,
+  score: 0,
+  accuracy: 0,
+  completionTime: 0,
+  joinedAt: new Date()
+}], { session });
     }
 
     // 8. Auto-start protocol if full
@@ -200,7 +211,7 @@ exports.getArenaQuestions = async (contestId) => {
      * 🔥 MANUAL SYNC: Targeted Retrieval
      * We fetch the full document to check status before allowing question access.
      */
-    const contest = await Contest.findById(contestId).select("questions status duration title completedParticipants");
+    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants");
 
     if (!contest) {
       throw new Error("Arena signal not found");
