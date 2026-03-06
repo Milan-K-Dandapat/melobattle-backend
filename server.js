@@ -37,8 +37,8 @@ app.use(cors({
 // 🔒 API Rate Limiter (Protect server from spam / loops)
 
 const limiter = rateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  max: 120, // max requests per IP
+  windowMs: 60 * 1000,
+  max: 1000,  // max requests per IP
   standardHeaders: true,
   legacyHeaders: false
 });

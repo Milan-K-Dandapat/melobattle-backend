@@ -1,4 +1,5 @@
 const Contest = require("./contest.model");
+const redis = require("../../config/redis");
 const User = require("../user/user.model");
 const contestService = require("./contest.service");
 const leaderboardService = require("./leaderboard.service");
@@ -100,6 +101,7 @@ const contest = await Contest.create({
       io.emit("NEW_CONTEST_DEPLOYED", contest);
     }
 
+    await redis.del("contests:active");
     res.status(201).json({ success: true, data: contest });
 
   } catch (error) {
@@ -150,6 +152,8 @@ exports.updateContest = async (req, res) => {
 
     await contest.save();
 
+    await redis.del("contests:active");
+
     res.json({
       success: true,
       message: "Contest Matrix Reconfigured",
@@ -172,6 +176,8 @@ exports.deleteContest = async (req, res) => {
   try {
     const contest = await Contest.findByIdAndDelete(req.params.id);
     if (!contest) return res.status(404).json({ success: false, message: "Target already purged" });
+
+    await redis.del("contests:active");
     
     const io = req.app.get("io");
     if (io) io.emit("CONTEST_TERMINATED", req.params.id);
@@ -191,92 +197,105 @@ exports.deleteContest = async (req, res) => {
  */
 exports.getAllContests = async (req, res) => {
   try {
+
+    const cacheKey = "contests:active";
+
+    // 🔥 Check Redis cache first
+    const cached = await redis.get(cacheKey);
+
+    if (cached) {
+      return res.json(JSON.parse(cached));
+    }
+
     const isAdmin = req.user && req.user.role === "ADMIN";
     const now = new Date();
 
-const query = isAdmin
-  ? {}
-  : {
-      status: { $nin: ["ARCHIVED"] }
-    };
+    const query = isAdmin
+      ? {}
+      : {
+          status: { $nin: ["ARCHIVED"] }
+        };
 
     const contests = await Contest.find(query)
       .sort({ startTime: 1 })
       .lean();
 
-   const formattedContests = contests.map((contest) => {
+    const formattedContests = contests.map((contest) => {
 
-  const dynamicStatus = (() => {
-    const now = new Date();
+      const dynamicStatus = (() => {
 
-    if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
-      return contest.status;
-    }
+        const now = new Date();
 
-    if (contest.startTime && now < new Date(contest.startTime)) {
-      return "UPCOMING";
-    }
+        if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
+          return contest.status;
+        }
 
-    if (
-      contest.startTime &&
-      contest.endTime &&
-      now >= new Date(contest.startTime) &&
-      now <= new Date(contest.endTime)
-    ) {
-      return "LIVE";
-    }
+        if (contest.startTime && now < new Date(contest.startTime)) {
+          return "UPCOMING";
+        }
 
-    if (contest.endTime && now > new Date(contest.endTime)) {
-      return "PROCESSING";
-    }
+        if (
+          contest.startTime &&
+          contest.endTime &&
+          now >= new Date(contest.startTime) &&
+          now <= new Date(contest.endTime)
+        ) {
+          return "LIVE";
+        }
 
-    return contest.status;
-  })();
+        if (contest.endTime && now > new Date(contest.endTime)) {
+          return "PROCESSING";
+        }
 
-  let computedPrizePool = 0;
+        return contest.status;
 
-  if (contest.isSponsored) {
-    computedPrizePool = Number(contest.sponsorPrize) || 0;
-  } else {
-    const totalCollection =
-      (contest.maxParticipants || 0) * (contest.entryFee || 0);
+      })();
 
-    const houseCut =
-      totalCollection *
-      (Number(contest.commissionPercentage || 20) / 100);
+      let computedPrizePool = 0;
 
-    computedPrizePool = totalCollection - houseCut;
-  }
+      if (contest.isSponsored) {
 
-  return {
-    ...contest,
-    status: dynamicStatus, // 🔥 important fix
-    prizePool: computedPrizePool,
+        computedPrizePool = Number(contest.sponsorPrize) || 0;
 
-    isJoined: Array.isArray(contest.participants)
-      ? contest.participants.some(
-          (id) => id.toString() === req.user._id.toString()
-        )
-      : false,
+      } else {
 
-    isCompletedByUser: Array.isArray(contest.completedParticipants)
-      ? contest.completedParticipants.some(
-          (id) => id.toString() === req.user._id.toString()
-        )
-      : false
-  };
-});
+        const totalCollection =
+          (contest.maxParticipants || 0) * (contest.entryFee || 0);
 
-    res.json({
+        const houseCut =
+          totalCollection *
+          (Number(contest.commissionPercentage || 20) / 100);
+
+        computedPrizePool = totalCollection - houseCut;
+
+      }
+
+      return {
+        ...contest,
+        status: dynamicStatus,
+        prizePool: computedPrizePool
+      };
+
+    });
+
+    const response = {
       success: true,
       count: formattedContests.length,
-      data: formattedContests,
-    });
+      data: formattedContests
+    };
+
+    // 🔥 Save to Redis (30 seconds cache)
+    await redis.set(cacheKey, JSON.stringify(response), "EX", 30);
+
+    res.json(response);
+
   } catch (error) {
+
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message
     });
+
   }
 };
 

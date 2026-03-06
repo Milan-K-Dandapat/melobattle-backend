@@ -1,32 +1,44 @@
-module.exports = (io) => {
-  io.on("connection", (socket) => {
-    console.log("User connected:", socket.id);
+module.exports = (io, socket) => {
 
-    // Join a specific contest room
-    socket.on("join_contest", (contestId) => {
-      socket.join(`contest_${contestId}`);
-    });
+  console.log("Quiz socket initialized:", socket.id);
 
-    // Admin triggers the start of a quiz
-    socket.on("start_quiz", async (data) => {
-      const { contestId, questions } = data;
-      
-      let currentQuestionIndex = 0;
-      
-      const interval = setInterval(() => {
-        if (currentQuestionIndex >= questions.length) {
-          io.to(`contest_${contestId}`).emit("quiz_ended");
-          clearInterval(interval);
-          return;
-        }
+  // Join contest room
+  socket.on("join_contest", (contestId) => {
 
-        io.to(`contest_${contestId}`).emit("new_question", {
-          question: questions[currentQuestionIndex],
-          timeLeft: 15 // 15 seconds per question
-        });
+    socket.join(`contest_${contestId}`);
 
-        currentQuestionIndex++;
-      }, 18000); // 15s for question + 3s buffer
-    });
   });
+
+  // Start quiz
+  socket.on("start_quiz", async (data) => {
+
+    const { contestId, questions } = data;
+
+    if (!contestId || !questions) return;
+
+    let currentQuestionIndex = 0;
+
+    const interval = setInterval(() => {
+
+      if (currentQuestionIndex >= questions.length) {
+
+        io.to(`contest_${contestId}`).emit("quiz_ended");
+
+        clearInterval(interval);
+
+        return;
+
+      }
+
+      io.to(`contest_${contestId}`).emit("new_question", {
+        question: questions[currentQuestionIndex],
+        timeLeft: 15
+      });
+
+      currentQuestionIndex++;
+
+    }, 18000);
+
+  });
+
 };
