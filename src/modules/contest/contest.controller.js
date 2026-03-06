@@ -432,43 +432,30 @@ else if (now > new Date(c.endTime) && status !== "COMPLETED") {
  */
 exports.exportContestCSV = async (req, res) => {
   try {
-    const mongoose = require("mongoose");
-    const contestId = new mongoose.Types.ObjectId(req.params.id);
+    const contestId = req.params.id;
 
     const participants = await Participant.find({ contestId })
-      .populate("userId", "username avatar rating points totalWins")
-      .sort({ score: -1 })
+      .populate("userId", "username email")
+      .sort({ score: -1, accuracy: -1, completionTime: 1 })
       .lean();
 
-    if (!participants.length) {
+    if (!participants || participants.length === 0) {
       return res.status(404).json({
         success: false,
         message: "No warriors found in this arena"
       });
     }
 
-    const fields = [
-      "Rank",
-      "Username",
-      "Score",
-      "Accuracy",
-      "CompletionTime",
-      "PrizeWon"
-    ];
+    // CSV HEADER
+    let csv =
+      "Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon\n";
 
-    const rows = participants.map((p, index) => ({
-      Rank: index + 1,
-      Username: p.userId?.username || "Unknown",
-      Score: p.score || 0,
-      Accuracy: p.accuracy || 0,
-      CompletionTime: p.completionTime || 0,
-      PrizeWon: p.prizeWon || 0
-    }));
+    participants.forEach((p, index) => {
+      const username = p.userId?.username || "";
+      const email = p.userId?.email || "";
 
-    const csv = [
-      fields.join(","),
-      ...rows.map(r => Object.values(r).join(","))
-    ].join("\n");
+      csv += `${index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0}\n`;
+    });
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
@@ -476,7 +463,7 @@ exports.exportContestCSV = async (req, res) => {
       `attachment; filename=contest_${contestId}.csv`
     );
 
-    res.send(csv);
+    res.status(200).send(csv);
 
   } catch (error) {
     console.error("CSV Export Error:", error);
