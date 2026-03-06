@@ -447,13 +447,13 @@ exports.exportContestCSV = async (req, res) => {
     }
 
     let csv =
-      "Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon\n";
+"Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
 
     participants.forEach((p, index) => {
       const username = p.userId?.username || p.userId?.name || "Warrior";
       const email = p.userId?.email || "N/A";
 
-      csv += `${index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0}\n`;
+      csv += `${index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
     });
 
     res.setHeader("Content-Type", "text/csv");
@@ -691,13 +691,21 @@ exports.submitBattle = async (req, res) => {
     }
 
     // 1. FIRST SAVE PARTICIPANT SCORE
-    await leaderboardService.saveUserScore({
-      userId,
-      contestId,
-      score,
-      accuracy,
-      timeTaken
-    });
+   await Participant.findOneAndUpdate(
+  { contestId, userId },
+  {
+    score,
+    accuracy,
+    completionTime: timeTaken,
+    playedAt: new Date(),
+    deviceInfo: req.headers["user-agent"] || "",
+    ipAddress: req.ip
+  },
+  {
+    new: true,
+    upsert: true
+  }
+);
 
     // 2. THEN LOCK CONTEST FOR THIS USER
     contest.completedParticipants.push(userId);

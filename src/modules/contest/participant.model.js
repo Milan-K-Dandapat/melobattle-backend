@@ -36,6 +36,27 @@ const participantSchema = new mongoose.Schema(
     prizeWon: {
       type: Number,
       default: 0
+    },
+
+    /* 🔥 NEW ANALYTICS FIELDS */
+
+    joinedAt: {
+      type: Date,
+      default: Date.now
+    },
+
+    playedAt: {
+      type: Date
+    },
+
+    deviceInfo: {
+      type: String,
+      default: ""
+    },
+
+    ipAddress: {
+      type: String,
+      default: ""
     }
   },
   {
