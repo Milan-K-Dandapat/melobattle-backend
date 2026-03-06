@@ -96,11 +96,14 @@ exports.updateLeaderboard = async (
 
     // Emit live update to all players currently in the contest room
     if (io) {
-      io.to(`contest_${contestId}`).emit("leaderboard_update", {
-        contestId,
-        lastUpdatedBy: userId
-      });
-    }
+  io.emit("LIVE_LEADERBOARD_UPDATE", {
+    contestId,
+    userId,
+    score,
+    accuracy,
+    completionTime
+  });
+}
   } catch (error) {
     console.error("Leaderboard Sync Error:", error);
   }

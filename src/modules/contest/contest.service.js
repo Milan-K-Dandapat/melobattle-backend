@@ -160,9 +160,12 @@ exports.joinContest = async (userId, contestId, io) => {
       });
       
       io.emit("PLAYER_JOINED_UPDATE", {
-          contestId: contest._id,
-          joinedCount: contest.joinedCount
-      });
+  contestId: contest._id,
+  joinedCount: contest.joinedCount,
+  userId: user._id,
+  username: user.username || user.name,
+  walletBalance: user.walletBalance
+});
     }
 
     return {

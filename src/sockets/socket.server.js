@@ -12,7 +12,10 @@ const initSocket = (server) => {
     cors: {
       // 🔥 THE CRITICAL FIX: Explicitly allow the frontend URL
       // Wildcard "*" is NOT allowed when credentials are true
-      origin: "http://localhost:5173", 
+      origin: [
+  "http://localhost:5173",
+  "https://battle.meloapp.in"
+],
       methods: ["GET", "POST"],
       credentials: true
     },
