@@ -517,15 +517,22 @@ function shuffleArray(arr) {
 
 function shuffleQuestionsAndOptions(questions) {
   const shuffledQuestions = shuffleArray(questions).map(q => {
+
     if (!q.options || !Array.isArray(q.options)) return q;
 
-    const options = shuffleArray(q.options);
+    const originalOptions = [...q.options];
+    const correctOption = originalOptions[q.correctAnswer];
+
+    const shuffledOptions = shuffleArray(originalOptions);
+
+    const newCorrectIndex = shuffledOptions.indexOf(correctOption);
 
     return {
       ...q,
-      options,
-      correctAnswer: undefined // 🔥 Hide answer from client
+      options: shuffledOptions,
+      correctAnswer: newCorrectIndex // 🔥 update correct index
     };
+
   });
 
   return shuffledQuestions;
@@ -766,15 +773,19 @@ if (answers && Array.isArray(answers)) {
 
     if (!question) continue;
 
-    if (question.correctAnswer === ans.selectedOption) {
+    const selectedIndex =
+      typeof ans.selectedOption === "number"
+        ? ans.selectedOption
+        : question.options.indexOf(ans.selectedOption);
+
+    if (selectedIndex === question.correctAnswer) {
       correctCount++;
     }
 
   }
 
-  const calculatedScore = correctCount * 10; // 10 points per correct answer
+  const calculatedScore = correctCount * 10;
 
-  // 🚨 Detect score manipulation
   if (calculatedScore !== score) {
 
     console.warn("🚨 Cheat attempt detected", {
@@ -789,6 +800,7 @@ if (answers && Array.isArray(answers)) {
     });
 
   }
+
 }
 
 // 🚨 Prevent multiple submissions
@@ -820,7 +832,7 @@ await Participant.findOneAndUpdate(
   }
 );
 
-// 2️⃣ Update XP + ELO + Redis leaderboard
+// 2️⃣ Update XP + ELO
 await leaderboardService.saveUserScore({
   userId,
   contestId,
@@ -833,45 +845,21 @@ await leaderboardService.saveUserScore({
 await leaderboardService.getTopPlayers(contestId);
 
 // 4️⃣ Lock contest for this user
-contest.completedParticipants.push(userId);
+await Contest.updateOne(
+  { _id: contestId },
+  { $addToSet: { completedParticipants: userId } }
+);
 await contest.save();
 
-// 5️⃣ Clear user cache
+// 5️⃣ Clear cache
 await redis.del(`contests:active:${userId}`);
 
 // ✅ Final response
-res.json({
+return res.json({
   success: true,
   message: "Combat results synchronized and arena locked",
   isContestClosed: false
 });
-
-// 2️⃣ Update XP + ELO + Redis leaderboard
-await leaderboardService.saveUserScore({
-  userId,
-  contestId,
-  score,
-  accuracy,
-  timeTaken
-});
-
-// 🔥 Recalculate leaderboard immediately
-await leaderboardService.getTopPlayers(contestId);
-    // 2. THEN LOCK CONTEST FOR THIS USER
-    contest.completedParticipants.push(userId);
-    
-    // 🔥 REMOVED INSTANT PAYOUT: The winner is now decided only via Cron (15-min timer)
-    // or through the Admin Force Close protocol below.
-    
-    await contest.save();
-
-    await redis.del(`contests:active:${userId}`);
-
-    res.json({
-      success: true,
-      message: "Combat results synchronized and arena locked",
-      isContestClosed: false // Controlled by time/admin
-    });
 
   } catch (error) {
     console.error("🔥 Submission Critical Error:", error.message);
