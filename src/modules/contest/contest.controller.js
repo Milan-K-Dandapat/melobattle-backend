@@ -198,7 +198,10 @@ exports.deleteContest = async (req, res) => {
 exports.getAllContests = async (req, res) => {
   try {
 
-    const cacheKey = "contests:active";
+    const userId = req.user?._id?.toString();
+
+    // 🔥 FIX: User specific cache
+    const cacheKey = `contests:active:${userId}`;
 
     // 🔥 Check Redis cache first
     const cached = await redis.get(cacheKey);
@@ -212,9 +215,7 @@ exports.getAllContests = async (req, res) => {
 
     const query = isAdmin
       ? {}
-      : {
-          status: { $nin: ["ARCHIVED"] }
-        };
+      : { status: { $nin: ["ARCHIVED"] } };
 
     const contests = await Contest.find(query)
       .sort({ startTime: 1 })
@@ -223,8 +224,6 @@ exports.getAllContests = async (req, res) => {
     const formattedContests = contests.map((contest) => {
 
       const dynamicStatus = (() => {
-
-        const now = new Date();
 
         if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
           return contest.status;
@@ -254,9 +253,7 @@ exports.getAllContests = async (req, res) => {
       let computedPrizePool = 0;
 
       if (contest.isSponsored) {
-
         computedPrizePool = Number(contest.sponsorPrize) || 0;
-
       } else {
 
         const totalCollection =
@@ -267,15 +264,26 @@ exports.getAllContests = async (req, res) => {
           (Number(contest.commissionPercentage || 20) / 100);
 
         computedPrizePool = totalCollection - houseCut;
-
       }
 
       return {
         ...contest,
         status: dynamicStatus,
-        prizePool: computedPrizePool
-      };
+        prizePool: computedPrizePool,
 
+        // 🔥 USER STATUS FLAGS
+        isJoined: Array.isArray(contest.participants)
+          ? contest.participants.some(
+              (id) => id.toString() === userId
+            )
+          : false,
+
+        isCompletedByUser: Array.isArray(contest.completedParticipants)
+          ? contest.completedParticipants.some(
+              (id) => id.toString() === userId
+            )
+          : false
+      };
     });
 
     const response = {
@@ -284,21 +292,21 @@ exports.getAllContests = async (req, res) => {
       data: formattedContests
     };
 
-    // 🔥 Save to Redis (30 seconds cache)
+    // 🔥 Cache for 30 seconds
     await redis.set(cacheKey, JSON.stringify(response), "EX", 30);
 
     res.json(response);
 
   } catch (error) {
 
+    console.error("🔥 Contest Fetch Error:", error.message);
+
     res.status(500).json({
       success: false,
       message: error.message
     });
-
   }
 };
-
 /**
  * @desc    Get detailed contest info with Status Checks
  */
@@ -735,6 +743,8 @@ await leaderboardService.getTopPlayers(contestId);
     // or through the Admin Force Close protocol below.
     
     await contest.save();
+
+    await redis.del(`contests:active:${userId}`);
 
     res.json({
       success: true,
