@@ -52,14 +52,29 @@ exports.joinContest = async (userId, contestId, io) => {
     }
 
     // 3. Check contest status
-    if (!["UPCOMING", "LIVE"].includes(contest.status)) {
-      throw new Error("This battle protocol is no longer active");
-    }
+    // 3. Check contest status
+if (!contest.isInstantBattle && !["UPCOMING", "LIVE"].includes(contest.status)) {
+  throw new Error("This battle protocol is no longer active");
+}
 
     // 4. Check spot availability
-    if (contest.joinedCount >= contest.maxParticipants) {
-      throw new Error("Arena is full. Access denied.");
-    }
+    // 🔥 AUTO RESET FOR INSTANT BATTLES
+if (contest.joinedCount >= contest.maxParticipants) {
+
+  if (contest.isInstantBattle) {
+
+    // reset arena
+    contest.joinedCount = 0;
+    contest.participants = [];
+    contest.completedParticipants = [];
+
+  } else {
+
+    throw new Error("Arena is full. Access denied.");
+
+  }
+
+}
 
     // 5. Fetch user and check balance
     const user = await User.findById(userId).session(session);
@@ -151,9 +166,11 @@ await Participant.create([{
     }
 
     // 8. Auto-start protocol if full
-    if (contest.joinedCount === contest.maxParticipants && contest.status === "UPCOMING") {
-      contest.status = "LIVE";
-    }
+if (!contest.isInstantBattle) {
+  if (contest.joinedCount === contest.maxParticipants && contest.status === "UPCOMING") {
+    contest.status = "LIVE";
+  }
+}
 
     await contest.save({ session });
 
@@ -218,9 +235,9 @@ exports.getArenaQuestions = async (contestId) => {
     }
 
     // 🔥 CRITICAL: Prevent fetching questions if the battle hasn't technically started.
-    if (contest.status !== "LIVE" && contest.status !== "UPCOMING") {
-      throw new Error(`Arena status is ${contest.status}. Access denied.`);
-    }
+    if (!contest.isInstantBattle && contest.status !== "LIVE" && contest.status !== "UPCOMING") {
+  throw new Error(`Arena status is ${contest.status}. Access denied.`);
+}
 
     // Fallback logic: Ensure questions were actually uploaded for this battle
     if (!contest.questions || contest.questions.length === 0) {

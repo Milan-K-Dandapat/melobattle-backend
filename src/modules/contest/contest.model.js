@@ -175,6 +175,12 @@ randomQuestionCount: {
   default: 10
 },
 
+// 🔥 PLAY ANYTIME BATTLE MODE
+isInstantBattle: {
+  type: Boolean,
+  default: false
+},
+
     // 🔥 HOUSE CUT MATRIX: Editable commission logic
     commissionPercentage: {
       type: Number,

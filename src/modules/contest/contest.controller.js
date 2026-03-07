@@ -17,22 +17,23 @@ const Transaction = require("../wallet/transaction.model"); // 🔥 Added for Le
 exports.createContest = async (req, res) => {
   try {
     const {
-      title,
-      entryFee,
-      maxParticipants,
-      startTime,
-      duration,
-      type,
-      category,
-      commissionPercentage,
-      bannerImage,
-      questions,
-      isSponsored,
-      sponsorPrize,
-      winnerPercentage,
-      useRandomQuestions,
-      randomQuestionCount
-    } = req.body;
+  title,
+  entryFee,
+  maxParticipants,
+  startTime,
+  duration,
+  type,
+  category,
+  commissionPercentage,
+  bannerImage,
+  questions,
+  isSponsored,
+  sponsorPrize,
+  winnerPercentage,
+  useRandomQuestions,
+  randomQuestionCount,
+  isInstantBattle   // 🔥 ADD THIS
+} = req.body;
 
     if (!title || !type || entryFee === undefined || !maxParticipants || !category) {
       return res.status(400).json({
@@ -79,8 +80,12 @@ exports.createContest = async (req, res) => {
       }
     }
 
- const start = new Date(startTime);
-const endTime = new Date(start.getTime() + (Number(duration) || 15) * 60000);
+// 🔥 Instant battles start immediately
+const start = isInstantBattle ? new Date() : new Date(startTime);
+
+const endTime = new Date(
+  start.getTime() + (Number(duration) || 15) * 60000
+);
 
 const contest = await Contest.create({
   ...req.body,
@@ -88,13 +93,15 @@ const contest = await Contest.create({
   duration: Number(duration) || 15,
   startTime: start,
   endTime: endTime,
+
+  isInstantBattle: isInstantBattle || false, // 🔥 ADD THIS
   questions: questions || [],
   useRandomQuestions: useRandomQuestions || false,
   randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
   prizePool: calculatedPrizePool,
   winnerPercentage: winnerPercentage ?? 60,
-  status: req.body.status || "UPCOMING",
+  status: isInstantBattle ? "LIVE" : (req.body.status || "UPCOMING"),
   joinedCount: 0,
   participants: [],
   completedParticipants: []
