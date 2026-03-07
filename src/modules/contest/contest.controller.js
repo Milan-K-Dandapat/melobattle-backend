@@ -499,6 +499,37 @@ exports.exportContestCSV = async (req, res) => {
     });
   }
 };
+
+/* =========================================
+    🔐 ANTI-CHEAT QUESTION SHUFFLE UTILITIES
+========================================= */
+
+function shuffleArray(arr) {
+  const array = [...arr];
+
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+
+  return array;
+}
+
+function shuffleQuestionsAndOptions(questions) {
+  const shuffledQuestions = shuffleArray(questions).map(q => {
+    if (!q.options || !Array.isArray(q.options)) return q;
+
+    const options = shuffleArray(q.options);
+
+    return {
+      ...q,
+      options,
+      correctAnswer: undefined // 🔥 Hide answer from client
+    };
+  });
+
+  return shuffledQuestions;
+}
 /**
  * 🔥 UPDATED: SECURITY-ENFORCED QUESTION DISPATCHER
  * @route   GET /api/contest/battle/:id
@@ -527,14 +558,28 @@ exports.getBattleQuestions = async (req, res) => {
     }
 
     const quizData = await contestService.getArenaQuestions(contest._id);
-    
-    res.json({ 
-      success: true, 
-      data: {
-          ...quizData,
-          isCompletedByUser: false // Explicitly tell frontend they can play
-      }
-    });
+
+/* =========================================
+   🔐 APPLY QUESTION + OPTION SHUFFLING
+========================================= */
+
+let questions = quizData.questions || quizData;
+
+// Shuffle questions and options
+const securedQuestions = shuffleQuestionsAndOptions(questions);
+
+const securedPayload = {
+  ...quizData,
+  questions: securedQuestions
+};
+
+res.json({ 
+  success: true, 
+  data: {
+      ...securedPayload,
+      isCompletedByUser: false
+  }
+});
   } catch (error) {
     res.status(500).json({ success: false, message: "Combat Sync Terminated: " + error.message });
   }
@@ -699,26 +744,67 @@ if (io) {
  */
 exports.submitBattle = async (req, res) => {
   try {
-    const { contestId, score, accuracy, timeTaken } = req.body;
+    const { contestId, score, accuracy, timeTaken, answers } = req.body;
     const userId = req.user._id;
 
-    const contest = await Contest.findById(contestId);
-    if (!contest)
-      return res.status(404).json({ success: false, message: "Arena signal lost" });
+// 🔥 Get contest
+const contest = await Contest.findById(contestId);
 
-    const alreadySubmitted = contest.completedParticipants?.some(
-      id => id.toString() === userId.toString()
+if (!contest)
+  return res.status(404).json({ success: false, message: "Arena signal lost" });
+
+// 🔐 Anti-cheat score validation
+if (answers && Array.isArray(answers)) {
+
+  let correctCount = 0;
+
+  for (const ans of answers) {
+
+    const question = contest.questions.find(
+      q => q._id?.toString() === ans.questionId
     );
 
-    if (alreadySubmitted) {
-      return res.status(400).json({
-        success: false,
-        message: "Combat results already archived"
-      });
+    if (!question) continue;
+
+    if (question.correctAnswer === ans.selectedOption) {
+      correctCount++;
     }
 
-    // 1. FIRST SAVE PARTICIPANT SCORE
-  await Participant.findOneAndUpdate(
+  }
+
+  const calculatedScore = correctCount * 10; // 10 points per correct answer
+
+  // 🚨 Detect score manipulation
+  if (calculatedScore !== score) {
+
+    console.warn("🚨 Cheat attempt detected", {
+      user: userId,
+      frontendScore: score,
+      backendScore: calculatedScore
+    });
+
+    return res.status(403).json({
+      success: false,
+      message: "Score validation failed"
+    });
+
+  }
+}
+
+// 🚨 Prevent multiple submissions
+const alreadySubmitted = contest.completedParticipants?.some(
+  id => id.toString() === userId.toString()
+);
+
+if (alreadySubmitted) {
+  return res.status(400).json({
+    success: false,
+    message: "Combat results already archived"
+  });
+}
+
+// 1️⃣ Save participant score
+await Participant.findOneAndUpdate(
   { contestId, userId },
   {
     score,
@@ -733,6 +819,41 @@ exports.submitBattle = async (req, res) => {
     upsert: true
   }
 );
+
+// 2️⃣ Update XP + ELO + Redis leaderboard
+await leaderboardService.saveUserScore({
+  userId,
+  contestId,
+  score,
+  accuracy,
+  timeTaken
+});
+
+// 3️⃣ Recalculate leaderboard ranks
+await leaderboardService.getTopPlayers(contestId);
+
+// 4️⃣ Lock contest for this user
+contest.completedParticipants.push(userId);
+await contest.save();
+
+// 5️⃣ Clear user cache
+await redis.del(`contests:active:${userId}`);
+
+// ✅ Final response
+res.json({
+  success: true,
+  message: "Combat results synchronized and arena locked",
+  isContestClosed: false
+});
+
+// 2️⃣ Update XP + ELO + Redis leaderboard
+await leaderboardService.saveUserScore({
+  userId,
+  contestId,
+  score,
+  accuracy,
+  timeTaken
+});
 
 // 🔥 Recalculate leaderboard immediately
 await leaderboardService.getTopPlayers(contestId);

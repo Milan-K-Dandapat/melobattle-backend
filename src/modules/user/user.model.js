@@ -121,6 +121,16 @@ const userSchema = new mongoose.Schema(
       type: Number, 
       default: 1000 
     },
+    rating: { 
+  type: Number, 
+  default: 1000 
+},
+
+// 🔥 XP SYSTEM
+points: {
+  type: Number,
+  default: 0
+},
 
     // Global periodic points (Total across all categories)
     dailyPoints: { type: Number, default: 0 },

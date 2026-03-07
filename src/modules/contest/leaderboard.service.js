@@ -286,9 +286,26 @@ exports.saveUserScore = async ({ userId, contestId, score, accuracy, timeTaken }
       { $addToSet: { completedParticipants: userId } }
     );
 
-    await User.findByIdAndUpdate(userId, {
-        $inc: { totalMatches: 1 } // 🔥 This unlocks the "Play at least 1 contest" requirement
-    });
+    // 🔥 XP + ELO CALCULATION
+let xpGain = score * 5;        // XP per correct answer
+let eloGain = Math.floor(score * 2); // ELO gain
+
+// Accuracy bonus
+if (accuracy >= 80) xpGain += 10;
+
+// Speed bonus
+if (timeTaken < 60) xpGain += 5;
+
+// ELO should not decrease
+if (eloGain < 0) eloGain = 0;
+
+await User.findByIdAndUpdate(userId, {
+  $inc: {
+    totalMatches: 1,
+    points: xpGain,   // XP
+    rating: eloGain   // ELO
+  }
+});
 
     return { score, accuracy, timeTaken };
   } catch (error) {
