@@ -159,10 +159,21 @@ const contestSchema = new mongoose.Schema(
     }],
 
     // 🔥 QUESTION MATRIX: Stores hybrid JSON questions for this battle
-    questions: {
-      type: [manualQuestionSchema],
-      default: []
-    },
+questions: {
+  type: [manualQuestionSchema],
+  default: []
+},
+
+// 🔥 RANDOM QUESTION SYSTEM
+useRandomQuestions: {
+  type: Boolean,
+  default: false
+},
+
+randomQuestionCount: {
+  type: Number,
+  default: 10
+},
 
     // 🔥 HOUSE CUT MATRIX: Editable commission logic
     commissionPercentage: {

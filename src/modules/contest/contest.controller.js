@@ -29,7 +29,9 @@ exports.createContest = async (req, res) => {
       questions,
       isSponsored,
       sponsorPrize,
-      winnerPercentage
+      winnerPercentage,
+      useRandomQuestions,
+      randomQuestionCount
     } = req.body;
 
     if (!title || !type || entryFee === undefined || !maxParticipants || !category) {
@@ -87,6 +89,8 @@ const contest = await Contest.create({
   startTime: start,
   endTime: endTime,
   questions: questions || [],
+  useRandomQuestions: useRandomQuestions || false,
+  randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
   prizePool: calculatedPrizePool,
   winnerPercentage: winnerPercentage ?? 60,
@@ -570,7 +574,23 @@ exports.getBattleQuestions = async (req, res) => {
    🔐 APPLY QUESTION + OPTION SHUFFLING
 ========================================= */
 
-let questions = quizData.questions || quizData;
+let questions;
+
+// 🔥 RANDOM QUESTION MODE
+if (contest.useRandomQuestions && contest.questions?.length > 0) {
+
+  const shuffled = shuffleArray(contest.questions);
+
+  questions = shuffled.slice(
+    0,
+    contest.randomQuestionCount || 10
+  );
+
+} else {
+
+  questions = quizData.questions || quizData;
+
+}
 
 // Shuffle questions and options
 const securedQuestions = shuffleQuestionsAndOptions(questions);
