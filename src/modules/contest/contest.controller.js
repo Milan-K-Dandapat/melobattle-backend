@@ -179,16 +179,31 @@ exports.updateContest = async (req, res) => {
 exports.deleteContest = async (req, res) => {
   try {
     const contest = await Contest.findByIdAndDelete(req.params.id);
-    if (!contest) return res.status(404).json({ success: false, message: "Target already purged" });
 
-    await redis.del("contests:active");
-    
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Target already purged"
+      });
+    }
+
+    // 🔥 clear ALL contest caches
+    const keys = await redis.keys("contests:*");
+    if (keys.length) await redis.del(keys);
+
     const io = req.app.get("io");
     if (io) io.emit("CONTEST_TERMINATED", req.params.id);
 
-    res.json({ success: true, message: "Contest terminated from Arena." });
+    res.json({
+      success: true,
+      message: "Contest terminated from Arena."
+    });
+
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
