@@ -408,6 +408,7 @@ const formattedRoster = roster.map((p, index) => ({
       success: true,
       data: {
   ...contest,
+  isInstantBattle: contest.isInstantBattle || false, // 🔥 ADD THIS
   prizePool: computedPrizePool,
   roster: formattedRoster,
   isJoined,
@@ -460,7 +461,7 @@ exports.getMyContests = async (req, res) => {
 else if (now >= new Date(c.startTime) && now <= new Date(c.endTime)) {
   status = "LIVE";
 }
-else if (now > new Date(c.endTime) && status !== "COMPLETED") {
+else if (!c.isInstantBattle && now > new Date(c.endTime) && status !== "COMPLETED") {
   status = "PROCESSING";
 }
 
