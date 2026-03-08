@@ -581,7 +581,8 @@ exports.getBattleQuestions = async (req, res) => {
     const userId = req.user._id.toString();
 
     // 🚨 BLOCK 1: Check Authorization
-    const isJoined = contest.participants.some(id => id.toString() === userId);
+    const isJoined = Array.isArray(contest.participants) &&
+  contest.participants.some(id => id.toString() === userId);
     if (!isJoined) {
       return res.status(403).json({ success: false, message: "Unauthorized participant" });
     }
@@ -616,7 +617,7 @@ if (contest.useRandomQuestions && contest.questions?.length > 0) {
 
 } else {
 
-  questions = quizData.questions || quizData;
+  questions = quizData?.questions || quizData || [];
 
 }
 
@@ -632,7 +633,8 @@ res.json({
   success: true, 
   data: {
       ...securedPayload,
-      isCompletedByUser: false
+      isCompletedByUser: false,
+      isInstantBattle: contest.isInstantBattle || false
   }
 });
   } catch (error) {

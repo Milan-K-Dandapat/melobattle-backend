@@ -228,14 +228,17 @@ exports.getArenaQuestions = async (contestId) => {
      * 🔥 MANUAL SYNC: Targeted Retrieval
      * We fetch the full document to check status before allowing question access.
      */
-    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants");
+    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants isInstantBattle");
 
     if (!contest) {
       throw new Error("Arena signal not found");
     }
 
     // 🔥 CRITICAL: Prevent fetching questions if the battle hasn't technically started.
-    if (!contest.isInstantBattle && contest.status !== "LIVE" && contest.status !== "UPCOMING") {
+    if (
+  contest.isInstantBattle !== true &&
+  !["LIVE", "UPCOMING"].includes(contest.status)
+) {
   throw new Error(`Arena status is ${contest.status}. Access denied.`);
 }
 
