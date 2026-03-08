@@ -41,6 +41,17 @@ const initSocket = (server) => {
     quizHandler(io, socket);
     matchSocket(io, socket);
 
+        // 🔥 Join contest room for real-time leaderboard updates
+    socket.on("JOIN_CONTEST_ROOM", (contestId) => {
+      if (!contestId) return;
+
+      socket.join(contestId.toString());
+
+      console.log(
+        `🏟️ Socket ${socket.id} joined contest room: ${contestId}`
+      );
+    });
+
     socket.on("disconnect", (reason) => {
       console.log(`❌ User Disconnected (${socket.id}): ${reason}`);
     });

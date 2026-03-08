@@ -2,13 +2,14 @@ module.exports = (io, socket) => {
 
   console.log("Quiz socket initialized:", socket.id);
 
-  // Join contest room
-  socket.on("join_contest", (contestId) => {
+// Join contest room (for quiz + leaderboard updates)
+socket.on("JOIN_CONTEST_ROOM", (contestId) => {
 
-    socket.join(`contest_${contestId}`);
+  socket.join(`contest_${contestId}`);
 
-  });
+  console.log(`User ${socket.id} joined contest room contest_${contestId}`);
 
+});
   // Start quiz
   socket.on("start_quiz", async (data) => {
 

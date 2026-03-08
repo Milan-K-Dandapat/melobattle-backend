@@ -249,30 +249,35 @@ exports.getAllContests = async (req, res) => {
 
     const formattedContests = contests.map((contest) => {
 
-      const dynamicStatus = (() => {
+     const dynamicStatus = (() => {
 
-        if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
-          return contest.status;
-        }
+  // 🔥 FIX: Instant battles never expire
+  if (contest.isInstantBattle) {
+    return "LIVE";
+  }
 
-        if (contest.startTime && now < new Date(contest.startTime)) {
-          return "UPCOMING";
-        }
+  if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
+    return contest.status;
+  }
 
-        if (
-          contest.startTime &&
-          contest.endTime &&
-          now >= new Date(contest.startTime) &&
-          now <= new Date(contest.endTime)
-        ) {
-          return "LIVE";
-        }
+  if (contest.startTime && now < new Date(contest.startTime)) {
+    return "UPCOMING";
+  }
 
-        if (contest.endTime && now > new Date(contest.endTime)) {
-          return "PROCESSING";
-        }
+  if (
+    contest.startTime &&
+    contest.endTime &&
+    now >= new Date(contest.startTime) &&
+    now <= new Date(contest.endTime)
+  ) {
+    return "LIVE";
+  }
 
-        return contest.status;
+  if (contest.endTime && now > new Date(contest.endTime)) {
+    return "PROCESSING";
+  }
+
+  return contest.status;
 
       })();
 
@@ -762,8 +767,7 @@ if (now < new Date(contest.startTime)) {
     message: "Battle has not started yet"
   });
 }
-
-if (now > new Date(contest.endTime)) {
+if (!contest.isInstantBattle && now > new Date(contest.endTime)) {
   return res.status(400).json({
     success: false,
     message: "Contest already ended"
@@ -884,7 +888,19 @@ await leaderboardService.saveUserScore({
 });
 
 // 3️⃣ Recalculate leaderboard ranks
-await leaderboardService.getTopPlayers(contestId);
+const leaderboard = await leaderboardService.getTopPlayers(contestId);
+
+// 🔥 Push real-time leaderboard update
+const io = req.app.get("io");
+
+if (io) {
+
+  io.to(`contest_${contestId}`).emit("LEADERBOARD_UPDATE", {
+    contestId,
+    data: leaderboard
+  });
+
+}
 
 // 4️⃣ Lock contest for this user
 await Contest.updateOne(

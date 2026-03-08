@@ -99,10 +99,11 @@ cron.schedule("*/20 * * * * *", async () => {
        1️⃣ START UPCOMING CONTESTS
     =============================== */
 
-    const upcomingContests = await Contest.find({
+   const upcomingContests = await Contest.find({
   status: "UPCOMING",
+  isInstantBattle: { $ne: true }, // 🔥 Instant battles already LIVE
   startTime: { $lte: now },
-  endTime: { $gt: now } // extra safety
+  endTime: { $gt: now }
 });
 
     for (const contest of upcomingContests) {
@@ -122,9 +123,10 @@ cron.schedule("*/20 * * * * *", async () => {
     =============================== */
 
     const finishedContests = await Contest.find({
-      status: "LIVE",
-      endTime: { $lte: now }
-    });
+  status: "LIVE",
+  isInstantBattle: { $ne: true },   // 🔥 DO NOT AUTO CLOSE INSTANT BATTLES
+  endTime: { $lte: now }
+});
 
     for (const contest of finishedContests) {
 
