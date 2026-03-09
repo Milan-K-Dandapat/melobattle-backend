@@ -240,7 +240,7 @@ exports.getArenaQuestions = async (contestId) => {
   !["LIVE", "UPCOMING"].includes(contest.status)
 ) {
   throw new Error(`Arena status is ${contest.status}. Access denied.`);
-}
+} 
 
     // Fallback logic: Ensure questions were actually uploaded for this battle
     if (!contest.questions || contest.questions.length === 0) {
