@@ -95,14 +95,15 @@ exports.updateLeaderboard = async (
 );
 
     // Emit live update to all players currently in the contest room
-    if (io) {
-  io.emit("LIVE_LEADERBOARD_UPDATE", {
+  if (io) {
+  io.to(`contest_${contestId}`).emit("LIVE_LEADERBOARD_UPDATE", {
     contestId,
     userId,
     score,
     accuracy,
     completionTime
   });
+
 }
   } catch (error) {
     console.error("Leaderboard Sync Error:", error);
@@ -286,18 +287,24 @@ exports.saveUserScore = async ({ userId, contestId, score, accuracy, timeTaken }
       { $addToSet: { completedParticipants: userId } }
     );
 
-    // 🔥 XP + ELO CALCULATION
-let xpGain = score * 5;        // XP per correct answer
-let eloGain = Math.floor(score * 2); // ELO gain
+// 🔥 CONTROLLED XP + ELO SYSTEM
 
-// Accuracy bonus
-if (accuracy >= 80) xpGain += 10;
+let xpGain = 10; // base XP per match
 
-// Speed bonus
-if (timeTaken < 60) xpGain += 5;
+// accuracy bonus
+if (accuracy >= 90) xpGain += 10;
+else if (accuracy >= 70) xpGain += 5;
 
-// ELO should not decrease
-if (eloGain < 0) eloGain = 0;
+// speed bonus
+if (timeTaken <= 30) xpGain += 5;
+
+// 🔥 ELO gain should be small per match
+let eloGain = 0;
+
+if (score >= 90) eloGain = 25;
+else if (score >= 70) eloGain = 18;
+else if (score >= 50) eloGain = 10;
+else eloGain = 5;
 
 await User.findByIdAndUpdate(userId, {
   $inc: {

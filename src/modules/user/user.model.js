@@ -121,13 +121,19 @@ const userSchema = new mongoose.Schema(
       type: Number, 
       default: 1000 
     },
-    rating: { 
-  type: Number, 
-  default: 1000 
-},
 
 // 🔥 XP SYSTEM
 points: {
+  type: Number,
+  default: 0
+},
+// 🔥 TIER SYSTEM
+tier: {
+  type: Number,
+  default: 1
+},
+
+tierXP: {
   type: Number,
   default: 0
 },
