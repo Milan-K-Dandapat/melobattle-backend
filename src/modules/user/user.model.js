@@ -138,6 +138,12 @@ tierXP: {
   default: 0
 },
 
+// 🏆 BADGES SYSTEM
+badges: {
+  type: [String],
+  default: []
+},
+
     // Global periodic points (Total across all categories)
     dailyPoints: { type: Number, default: 0 },
     weeklyPoints: { type: Number, default: 0 },

@@ -127,7 +127,7 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     const dbParticipants = await Participant.find({
       contestId: objectContestId
     })
-      .populate("userId", "name username avatar rating")
+      .populate("userId", "name username avatar rating totalWins")
       .sort({
         score: -1,
         accuracy: -1,
