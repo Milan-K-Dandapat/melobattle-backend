@@ -1,4 +1,5 @@
 require("dotenv").config();
+const path = require("path"); // Added to handle file paths
 
 // 1. Core Config & Connect Redis
 require("./src/config/redis");
@@ -44,6 +45,19 @@ const limiter = rateLimit({
 });
 
 app.use("/api", limiter);
+
+/**
+ * 🚀 SEO STATIC BYPASS
+ * Directly serves robots.txt and sitemap.xml to Google bots
+ * This prevents the files from being caught by React's login redirect.
+ */
+app.get("/robots.txt", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend", "public", "robots.txt"));
+});
+
+app.get("/sitemap.xml", (req, res) => {
+  res.sendFile(path.join(__dirname, "frontend", "public", "sitemap.xml"));
+});
 
 /**
  * 🚀 RENDER KEEP-ALIVE / HEALTH CHECK
