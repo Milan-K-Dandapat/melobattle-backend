@@ -93,7 +93,7 @@ const startPrizeDistributionJob = require("./src/jobs/prizeDistribution.job");
  */
 const initContestCron = require("./src/utils/contestWatcher");
 
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 5000;
 
 // 2. Create HTTP server
 const server = http.createServer(app);

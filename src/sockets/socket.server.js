@@ -41,6 +41,40 @@ const initSocket = (server) => {
     quizHandler(io, socket);
     matchSocket(io, socket);
 
+    // ================= 🔥 LIVE CODING BATTLE SOCKET =================
+
+socket.on("join_battle", ({ contestId, userId }) => {
+  if (!contestId) return;
+
+  socket.join(contestId.toString());
+
+  console.log(`⚔️ ${userId} joined battle room: ${contestId}`);
+
+  socket.to(contestId).emit("opponent_joined", {
+    userId,
+    status: "Joined"
+  });
+});
+
+
+socket.on("typing", ({ contestId, status }) => {
+  socket.to(contestId).emit("opponent_status", {
+    status
+  });
+});
+
+
+socket.on("progress_update", ({ contestId, progress }) => {
+  socket.to(contestId).emit("opponent_progress", {
+    progress
+  });
+});
+
+
+socket.on("submit_code", ({ contestId }) => {
+  socket.to(contestId).emit("opponent_submitted");
+});
+
         // 🔥 Join contest room for real-time leaderboard updates
     socket.on("JOIN_CONTEST_ROOM", (contestId) => {
       if (!contestId) return;

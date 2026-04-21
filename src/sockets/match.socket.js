@@ -1,43 +1,39 @@
-const leaderboardService = require("../modules/contest/leaderboard.service");
-const antiCheat = require("../modules/contest/antiCheat.engine");
-
 module.exports = (io, socket) => {
 
-  // Prevent duplicate listeners on reconnect
-  socket.removeAllListeners("submit_answer");
+  // 🔥 USER JOINS BATTLE
+  socket.on("join_battle", ({ contestId, userId }) => {
+    if (!contestId) return;
 
-  socket.on("submit_answer", async (data) => {
-    try {
+    socket.join(contestId.toString());
 
-      const { contestId, userId, score, completionTime, accuracy } = data;
+    console.log(`⚔️ ${userId} joined battle room: ${contestId}`);
 
-      if (!contestId || !userId) return;
+    socket.to(contestId).emit("opponent_joined", {
+      userId,
+      status: "Joined"
+    });
+  });
 
-      // 1️⃣ Anti-Cheat Check
-      await antiCheat.evaluatePlayer(userId, score, completionTime, accuracy);
 
-      // 2️⃣ Update Leaderboard
-      await leaderboardService.updateLeaderboard(
-        contestId,
-        userId,
-        score,
-        completionTime,
-        accuracy,
-        io
-      );
+  // 🔥 TYPING STATUS
+  socket.on("typing", ({ contestId, status }) => {
+    socket.to(contestId).emit("opponent_status", {
+      status
+    });
+  });
 
-      // 3️⃣ Acknowledge
-      socket.emit("answer_received", { success: true });
 
-    } catch (error) {
+  // 🔥 PROGRESS UPDATE
+  socket.on("progress_update", ({ contestId, progress }) => {
+    socket.to(contestId).emit("opponent_progress", {
+      progress
+    });
+  });
 
-      console.error("Submit Answer Error:", error.message);
 
-      socket.emit("error", {
-        message: "Failed to submit answer"
-      });
-
-    }
+  // 🔥 SUBMIT EVENT
+  socket.on("submit_code", ({ contestId }) => {
+    socket.to(contestId).emit("opponent_submitted");
   });
 
 };
