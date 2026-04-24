@@ -11,6 +11,7 @@ const rateLimit = require("express-rate-limit");
 const connectDB = require("./src/config/db");
 // Import the app instance
 const app = require("./src/app"); 
+const examAuthRoutes = require("./src/modules/examAuth/examAuth.routes");
 
 /**
  * 🔥 PERFORMANCE OVERRIDE
@@ -73,6 +74,8 @@ app.get("/health", (req, res) => {
  */
 app.use(express.json({ limit: "10mb" })); 
 app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+app.use("/exam-auth", examAuthRoutes);
 
 // 🔥 Ranking Resetter (Cron Jobs)
 require("./src/utils/cron"); 

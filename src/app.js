@@ -22,7 +22,8 @@ const adminRoutes = require("./modules/admin/admin.routes");
 const categoryRoutes = require("./modules/category/category.routes");
 const compilerRoutes = require("./modules/compiler/compiler.routes");
 const paymentRoutes = require("./modules/payment/payment.routes");
-
+const proctoringRoutes = require("./routes/proctoring.routes");
+const examAuthRoutes = require("./modules/examAuth/examAuth.routes");
 
 const app = express();
 
@@ -102,7 +103,8 @@ app.use("/api/contest", contestRoutes);
 app.use("/api/categories", categoryRoutes); // Added fallback for categories
 app.use("/api/v1/compiler", compilerRoutes);
 app.use("/api/v1/payment", paymentRoutes);
-
+app.use("/api/proctoring", proctoringRoutes);
+app.use("/api/v1/exam-auth", examAuthRoutes);
 /* ==============================
     DIAGNOSTICS & 404
 ============================== */
