@@ -57,7 +57,13 @@ exports.createExamUser = async (req, res) => {
 
     await newUser.save();
 
-    res.json({ success: true, message: "User created successfully" });
+    const users = await ExamAuth.find({ contestId });
+
+res.json({
+  success: true,
+  message: "User created successfully",
+  users
+});
 
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
