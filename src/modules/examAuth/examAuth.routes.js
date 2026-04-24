@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const { assignUsersToContest } = require("./examAuth.controller");
 
 // ✅ ONLY ONE IMPORT
 const { loginExam, createExamUser } = require("./examAuth.controller");
