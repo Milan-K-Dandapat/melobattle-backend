@@ -87,3 +87,15 @@ exports.assignUsersToContest = async (req, res) => {
     res.status(500).json({ success: false });
   }
 };
+exports.getAllExamUsers = async (req, res) => {
+  try {
+    const users = await ExamAuth.find({ contestId: null });
+
+    res.json({
+      success: true,
+      users
+    });
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+};

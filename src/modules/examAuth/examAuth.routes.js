@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { assignUsersToContest } = require("./examAuth.controller");
+const examAuthController = require("./examAuth.controller");
 
 // ✅ ONLY ONE IMPORT
 const { loginExam, createExamUser } = require("./examAuth.controller");
@@ -9,6 +10,7 @@ const { loginExam, createExamUser } = require("./examAuth.controller");
 router.post("/login", loginExam);
 router.post("/create", createExamUser);
 router.post("/assign", assignUsersToContest);
+router.get("/all", examAuthController.getAllExamUsers);
 router.get("/all", async (req, res) => {
   try {
     const ExamAuth = require("./examAuth.model"); // 👈 ADD THIS LINE

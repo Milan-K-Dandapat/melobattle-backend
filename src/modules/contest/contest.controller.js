@@ -743,25 +743,43 @@ exports.getLeaderboard = async (req, res) => {
 exports.joinContest = async (req, res) => {
   try {
     const io = req.app.get("io");
+
     const result = await contestService.joinContest(
-      req.user._id, 
+      req.user._id,
       req.params.contestId || req.body.contestId,
       io
     );
 
     if (io && result) {
-        io.emit("PLAYER_JOINED_UPDATE", { 
-            contestId: req.params.contestId || req.body.contestId, 
-            joinedCount: result.joinedCount 
-        });
+      io.emit("PLAYER_JOINED_UPDATE", {
+        contestId: req.params.contestId || req.body.contestId,
+        joinedCount: result.joinedCount
+      });
     }
 
-    res.json({ success: true, ...result });
+    // ✅ FORCE isJoined TRUE
+    res.json({
+      success: true,
+      isJoined: true,
+      joinedCount: result?.joinedCount || 1
+    });
+
   } catch (error) {
-    if (error.message.includes("already joined") || error.message.includes("already deployed")) {
-        return res.json({ success: true, message: "Warrior already authorized" });
+
+    if (
+      error.message.includes("already joined") ||
+      error.message.includes("already deployed")
+    ) {
+      return res.json({
+        success: true,
+        isJoined: true
+      });
     }
-    res.status(400).json({ success: false, message: error.message });
+
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
