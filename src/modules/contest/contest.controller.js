@@ -88,6 +88,7 @@ const endTime = new Date(
   start.getTime() + (Number(duration) || 15) * 60000
 );
 console.log("🔥 MODE RECEIVED:", mode);
+console.log("🔥 QUESTIONS RECEIVED:", questions);
 const contest = await Contest.create({
   ...req.body,
   mode: mode || "battle",
@@ -98,7 +99,7 @@ const contest = await Contest.create({
   endTime: endTime,
 
   isInstantBattle: isInstantBattle || false, // 🔥 ADD THIS
-  questions: questions || [],
+  questions: Array.isArray(questions) && questions.length > 0 ? questions : [],
   useRandomQuestions: useRandomQuestions || false,
   randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
@@ -619,19 +620,16 @@ exports.getBattleQuestions = async (req, res) => {
 
 let questions;
 
-// 🔥 RANDOM QUESTION MODE
-if (contest.useRandomQuestions && contest.questions?.length > 0) {
-
-  const shuffled = shuffleArray(contest.questions);
-
-  questions = shuffled.slice(
-    0,
-    contest.randomQuestionCount || 10
-  );
-
+// 🔥 PRIORITY FIX
+if (contest.questions && contest.questions.length > 0) {
+  questions = contest.questions;
+} else if (quizData?.questions && quizData.questions.length > 0) {
+  questions = quizData.questions;
 } else {
-
-  questions = quizData?.questions || contest.questions || [];
+  return res.status(400).json({
+    success: false,
+    message: "No questions found in contest"
+  });
 }
 
 if (!questions || questions.length === 0) {
@@ -645,17 +643,16 @@ if (!questions || questions.length === 0) {
 const securedQuestions = shuffleQuestionsAndOptions(questions);
 
 const securedPayload = {
-  ...quizData,
   questions: securedQuestions
 };
 
 res.json({ 
   success: true, 
-  data: {
-      ...securedPayload,
-      isCompletedByUser: false,
-      isInstantBattle: contest.isInstantBattle || false
-  }
+ data: {
+  questions: securedQuestions,
+  isCompletedByUser: false,
+  isInstantBattle: contest.isInstantBattle || false
+}
 });
   } catch (error) {
     res.status(500).json({ success: false, message: "Combat Sync Terminated: " + error.message });
