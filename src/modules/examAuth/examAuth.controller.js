@@ -45,28 +45,28 @@ exports.loginExam = async (req, res) => {
 };
 exports.createExamUser = async (req, res) => {
   try {
-    const { userId, password, contestId } = req.body;
+    const { userId, password } = req.body;
 
-    // ✅ overwrite existing user
     await ExamAuth.deleteOne({ userId });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new ExamAuth({
-  userId,
-  password: hashedPassword,
-  contestId: null   // 🔥 no contest yet
-});
+      userId,
+      password: hashedPassword,
+      contestId: null
+    });
 
     await newUser.save();
 
-    const users = await ExamAuth.find({ contestId });
+    // ✅ FIXED LINE
+    const users = await ExamAuth.find({ contestId: null });
 
-res.json({
-  success: true,
-  message: "User created successfully",
-  users
-});
+    res.json({
+      success: true,
+      message: "User created successfully",
+      users
+    });
 
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
