@@ -4,13 +4,16 @@ const bcrypt = require("bcryptjs");
 exports.loginExam = async (req, res) => {
   try {
     const { userId, password, contestId } = req.body;
+    if (!userId || !password || !contestId) {
+  return res.status(400).json({
+    success: false,
+    message: "Missing credentials"
+  });
+}
 
     const user = await ExamAuth.findOne({
   userId,
-  $or: [
-    { contestId: contestId },
-    { contestId: null }
-  ]
+  contestId
 });
 
     if (!user) {
@@ -42,14 +45,14 @@ exports.createExamUser = async (req, res) => {
     const { userId, password, contestId } = req.body;
 
     // ✅ overwrite existing user
-    await ExamAuth.deleteOne({ userId });
+    await ExamAuth.deleteOne({ userId, contestId });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new ExamAuth({
       userId,
       password: hashedPassword,
-      contestId: contestId || null
+      contestId
     });
 
     await newUser.save();
