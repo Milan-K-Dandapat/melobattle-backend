@@ -13,7 +13,10 @@ exports.loginExam = async (req, res) => {
 
     const user = await ExamAuth.findOne({
   userId,
-  contestId
+  $or: [
+    { contestId: contestId },  // assigned user
+    { contestId: null }        // unassigned user
+  ]
 });
 
     if (!user) {
@@ -45,15 +48,15 @@ exports.createExamUser = async (req, res) => {
     const { userId, password, contestId } = req.body;
 
     // ✅ overwrite existing user
-    await ExamAuth.deleteOne({ userId, contestId });
+    await ExamAuth.deleteOne({ userId });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = new ExamAuth({
-      userId,
-      password: hashedPassword,
-      contestId
-    });
+  userId,
+  password: hashedPassword,
+  contestId: null   // 🔥 no contest yet
+});
 
     await newUser.save();
 
@@ -67,5 +70,20 @@ res.json({
 
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+exports.assignUsersToContest = async (req, res) => {
+  try {
+    const { contestId, userIds } = req.body;
+
+    await ExamAuth.updateMany(
+      { userId: { $in: userIds } },
+      { $set: { contestId } }
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    res.status(500).json({ success: false });
   }
 };

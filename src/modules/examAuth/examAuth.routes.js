@@ -7,6 +7,7 @@ const { loginExam, createExamUser } = require("./examAuth.controller");
 // ✅ Routes
 router.post("/login", loginExam);
 router.post("/create", createExamUser);
+router.post("/assign", assignUsersToContest);
 router.get("/all", async (req, res) => {
   try {
     const ExamAuth = require("./examAuth.model"); // 👈 ADD THIS LINE
