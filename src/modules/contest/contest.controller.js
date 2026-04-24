@@ -631,8 +631,14 @@ if (contest.useRandomQuestions && contest.questions?.length > 0) {
 
 } else {
 
-  questions = quizData?.questions || quizData || [];
+  questions = quizData?.questions || contest.questions || [];
+}
 
+if (!questions || questions.length === 0) {
+  return res.status(400).json({
+    success: false,
+    message: "No questions found in contest"
+  });
 }
 
 // Shuffle questions and options
