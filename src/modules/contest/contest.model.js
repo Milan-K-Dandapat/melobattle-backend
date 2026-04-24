@@ -119,6 +119,11 @@ const contestSchema = new mongoose.Schema(
       enum: ["HEAD_TO_HEAD", "MULTIPLAYER"],
       required: true
     },
+    mode: {
+  type: String,
+  enum: ["battle", "exam"],
+  default: "battle"
+},
 
     entryFee: {
       type: Number,

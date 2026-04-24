@@ -32,7 +32,8 @@ exports.createContest = async (req, res) => {
   winnerPercentage,
   useRandomQuestions,
   randomQuestionCount,
-  isInstantBattle   // 🔥 ADD THIS
+  isInstantBattle,
+  mode  // 🔥 ADD THIS
 } = req.body;
 
     if (!title || !type || entryFee === undefined || !maxParticipants || !category) {
@@ -86,9 +87,11 @@ const start = isInstantBattle ? new Date() : new Date(startTime);
 const endTime = new Date(
   start.getTime() + (Number(duration) || 15) * 60000
 );
-
+console.log("🔥 MODE RECEIVED:", mode);
 const contest = await Contest.create({
   ...req.body,
+  mode: mode || "battle",
+
   category: cleanCategory,
   duration: Number(duration) || 15,
   startTime: start,
@@ -113,6 +116,8 @@ const contest = await Contest.create({
     }
 
     await redis.del("contests:active");
+    const keys = await redis.keys("contests:*");
+if (keys.length) await redis.del(keys);
     res.status(201).json({ success: true, data: contest });
 
   } catch (error) {
@@ -138,6 +143,11 @@ exports.updateContest = async (req, res) => {
     }
 
     Object.assign(contest, req.body);
+
+// 🔥 PRESERVE MODE IF NOT SENT
+if (!req.body.mode) {
+  contest.mode = contest.mode || "battle";
+}
 
     /* =========================================
         🔥 RE-CALCULATE PRIZE ON UPDATE
@@ -298,9 +308,12 @@ exports.getAllContests = async (req, res) => {
       }
 
       return {
-        ...contest,
-        status: dynamicStatus,
-        prizePool: computedPrizePool,
+  ...contest,
+
+  mode: contest.mode || "battle",   // ✅ ADD EXACTLY HERE
+
+  status: dynamicStatus,
+  prizePool: computedPrizePool,
 
         // 🔥 USER STATUS FLAGS
         isJoined: Array.isArray(contest.participants)
@@ -408,6 +421,7 @@ const formattedRoster = roster.map((p, index) => ({
       success: true,
       data: {
   ...contest,
+  mode: contest.mode || "battle", 
   isInstantBattle: contest.isInstantBattle || false, // 🔥 ADD THIS
   prizePool: computedPrizePool,
   roster: formattedRoster,
