@@ -5,7 +5,13 @@ exports.loginExam = async (req, res) => {
   try {
     const { userId, password, contestId } = req.body;
 
-    const user = await ExamAuth.findOne({ userId, contestId });
+    const user = await ExamAuth.findOne({
+  userId,
+  $or: [
+    { contestId: contestId },
+    { contestId: null }
+  ]
+});
 
     if (!user) {
       return res.status(401).json({ success: false, message: "Invalid ID" });
@@ -35,20 +41,15 @@ exports.createExamUser = async (req, res) => {
   try {
     const { userId, password, contestId } = req.body;
 
-    // check if already exists
-    const existing = await ExamAuth.findOne({ userId, contestId });
-    if (existing) {
-      return res.status(400).json({ success: false, message: "User already exists" });
-    }
+    // ✅ overwrite existing user
+    await ExamAuth.deleteOne({ userId });
 
-    // hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // save in DB
     const newUser = new ExamAuth({
       userId,
       password: hashedPassword,
-      contestId
+      contestId: contestId || null
     });
 
     await newUser.save();
