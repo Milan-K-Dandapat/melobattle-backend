@@ -621,6 +621,27 @@ exports.getBattleQuestions = async (req, res) => {
 ========================================= */
 
 const questions = contest.questions || [];
+// 🔥 TIME VALIDATION (ADD HERE EXACTLY)
+const now = new Date();
+
+if (!contest.isInstantBattle) {
+  if (now < new Date(contest.startTime)) {
+    return res.status(400).json({
+      success: false,
+      message: "Battle not started",
+      isBeforeStart: true,
+      startTime: contest.startTime
+    });
+  }
+
+  if (now > new Date(contest.endTime)) {
+    return res.status(400).json({
+      success: false,
+      message: "Battle ended",
+      isEnded: true
+    });
+  }
+}
 
 if (!questions.length) {
   console.log("❌ No questions in DB");
@@ -637,9 +658,10 @@ res.json({
   success: true, 
   data: {
     questions: securedQuestions,
-    duration: contest.duration, // 🔥 ADD THIS
+    duration: contest.duration,
     isCompletedByUser: false,
-    isInstantBattle: contest.isInstantBattle || false
+    isInstantBattle: contest.isInstantBattle || false,
+    startTime: contest.startTime // 🔥 ADD THIS LINE
   }
 });
   } catch (error) {
