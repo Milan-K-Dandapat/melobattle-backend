@@ -17,6 +17,7 @@ const walletRoutes = require("./modules/wallet/wallet.routes");
 const contestRoutes = require("./modules/contest/contest.routes");
 const withdrawalRoutes = require("./modules/withdrawal/withdrawal.routes");
 const adminRoutes = require("./modules/admin/admin.routes");
+const authRoutes = require("./modules/auth/auth.routes");
 
 // 🔥 NEW: Category/Fields Routes injected
 const categoryRoutes = require("./modules/category/category.routes");
@@ -24,6 +25,7 @@ const compilerRoutes = require("./modules/compiler/compiler.routes");
 const paymentRoutes = require("./modules/payment/payment.routes");
 const proctoringRoutes = require("./routes/proctoring.routes");
 const examAuthRoutes = require("./modules/examAuth/examAuth.routes");
+
 
 const app = express();
 
@@ -92,6 +94,7 @@ app.use("/api/v1/wallet", walletRoutes);
 app.use("/api/v1/contest", contestRoutes);
 app.use("/api/v1/withdrawal", withdrawalRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/auth", authRoutes);
 
 // 🔥 NEW: Mount the dynamic categories route
 app.use("/api/v1/categories", categoryRoutes);
