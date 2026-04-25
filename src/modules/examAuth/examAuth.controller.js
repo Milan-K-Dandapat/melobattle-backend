@@ -25,15 +25,9 @@ exports.loginExam = async (req, res) => {
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Wrong password" });
     }
-
-    // optional: block reuse
-    if (user.isUsed) {
-      return res.status(403).json({ success: false, message: "Already used" });
-    }
-
-    user.isUsed = true;
-    await user.save();
-
+// 🔥 OPTIONAL TRACKING (NO BLOCK)
+user.isUsed = true;
+await user.save();
     res.json({ success: true });
 
   } catch (err) {
@@ -88,9 +82,13 @@ exports.getUsersByContest = async (req, res) => {
 // 🔥 DELETE USER
 exports.deleteExamUser = async (req, res) => {
   try {
-    await ExamAuth.findByIdAndDelete(req.params.id);
+    const user = await ExamAuth.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true });
+    res.json({
+      success: true,
+      userId: user?.userId,
+      contestId: user?.contestId
+    });
 
   } catch (err) {
     res.status(500).json({ success: false });
