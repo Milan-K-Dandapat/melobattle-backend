@@ -95,14 +95,33 @@ let start;
 if (isInstantBattle) {
   start = new Date();
 } else {
-  start = new Date(startTime);
+// 🔥 FIX TIMEZONE ISSUE (VERY IMPORTANT)
+let start;
 
-  if (!startTime || isNaN(start.getTime())) {
+if (isInstantBattle) {
+  start = new Date();
+} else {
+  if (!startTime) {
     return res.status(400).json({
       success: false,
       message: "Invalid or missing startTime"
     });
   }
+
+  // 👇 FORCE UTC FORMAT
+  const formattedStart = typeof startTime === "string" && !startTime.endsWith("Z")
+    ? startTime + "Z"
+    : startTime;
+
+  start = new Date(formattedStart);
+
+  if (isNaN(start.getTime())) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid startTime format"
+    });
+  }
+}
 }
 
 const endTime = new Date(
@@ -457,6 +476,9 @@ const formattedRoster = roster.map((p, index) => ({
       success: true,
       data: {
   ...contest,
+  startTime: contest.startTime
+  ? new Date(contest.startTime).toISOString()
+  : null,
   mode: contest.mode || "battle", 
   isInstantBattle: contest.isInstantBattle || false, // 🔥 ADD THIS
   prizePool: computedPrizePool,
