@@ -624,11 +624,12 @@ const securedPayload = {
 
 res.json({ 
   success: true, 
- data: {
-  questions: securedQuestions,
-  isCompletedByUser: false,
-  isInstantBattle: contest.isInstantBattle || false
-}
+  data: {
+    questions: securedQuestions,
+    duration: contest.duration, // 🔥 ADD THIS
+    isCompletedByUser: false,
+    isInstantBattle: contest.isInstantBattle || false
+  }
 });
   } catch (error) {
     res.status(500).json({ success: false, message: "Combat Sync Terminated: " + error.message });
