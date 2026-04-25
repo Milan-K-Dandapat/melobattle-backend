@@ -87,8 +87,7 @@ const start = isInstantBattle ? new Date() : new Date(startTime);
 const endTime = new Date(
   start.getTime() + (Number(duration) || 15) * 60000
 );
-console.log("🔥 MODE RECEIVED:", mode);
-console.log("🔥 QUESTIONS RECEIVED:", questions);
+console.log("🔥 FINAL QUESTIONS SAVED:", JSON.stringify(questions, null, 2));
 const contest = await Contest.create({
   ...req.body,
   mode: mode || "battle",
@@ -99,7 +98,7 @@ const contest = await Contest.create({
   endTime: endTime,
 
   isInstantBattle: isInstantBattle || false, // 🔥 ADD THIS
-  questions: Array.isArray(questions) && questions.length > 0 ? questions : [],
+  questions: questions,
   useRandomQuestions: useRandomQuestions || false,
   randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
@@ -605,12 +604,13 @@ exports.getBattleQuestions = async (req, res) => {
     // 🚨 BLOCK 2: Check for existing play-through (The core fix)
     const alreadyPlayed = contest.completedParticipants && contest.completedParticipants.some(id => id.toString() === userId);
     if (alreadyPlayed) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Battle archived: Access denied for multiple attempts",
-        isCompletedByUser: true 
-      });
-    }
+  console.log("⚠️ Allowing replay for debug");
+
+  // ❌ REMOVE BLOCK
+  // return res.status(403)...
+
+  // ✅ allow flow to continue
+}
 
     const quizData = await contestService.getArenaQuestions(contest._id);
 
@@ -798,6 +798,12 @@ exports.startBattle = async (req, res) => {
     }
 
   const now = new Date();
+  if (contest.status === "COMPLETED") {
+  return res.status(400).json({
+    success: false,
+    message: "Contest already completed"
+  });
+}
 
 if (now < new Date(contest.startTime)) {
   return res.status(400).json({
