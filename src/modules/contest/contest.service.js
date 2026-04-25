@@ -62,23 +62,6 @@ if (!contest.isInstantBattle) {
       throw new Error("You are already deployed in this battle arena.");
     }
 
-    // 3. Check contest status
-    // 3. Check contest status
-const now = new Date();
-
-if (!contest.isInstantBattle) {
-  if (contest.endTime && now > new Date(contest.endTime)) {
-    throw new Error("Contest already ended");
-  }
-}
-    // 4. Check spot availability
-    // 🔥 AUTO RESET FOR INSTANT BATTLES
-if (!contest.isInstantBattle) {
-  if (contest.joinedCount >= contest.maxParticipants) {
-    throw new Error("Arena is full. Access denied.");
-  }
-}
-
     // 5. Fetch user and check balance
     const user = await User.findById(userId).session(session);
     if (!user) throw new Error("Warrior not found");
