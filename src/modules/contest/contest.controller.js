@@ -965,7 +965,6 @@ exports.forceCloseContest = async (req, res) => {
     }
 
     const contest = await Contest.findById(req.params.id);
-    const contest = await Contest.findById(req.params.id);
 
     if (!contest) {
       return res.status(404).json({
