@@ -620,7 +620,9 @@ exports.getBattleQuestions = async (req, res) => {
    🔐 APPLY QUESTION + OPTION SHUFFLING
 ========================================= */
 
-const questions = contest.questions || [];
+const questions = (contest.questions || []).filter(q => 
+  q.options && q.options.length > 0
+);
 // 🔥 TIME VALIDATION (ADD HERE EXACTLY)
 const now = new Date();
 
@@ -634,12 +636,9 @@ if (!contest.isInstantBattle) {
     });
   }
 
+  // 🔥 FIX: DO NOT BLOCK AFTER END
   if (now > new Date(contest.endTime)) {
-    return res.status(400).json({
-      success: false,
-      message: "Battle ended",
-      isEnded: true
-    });
+    console.log("⚠️ Battle time ended, but allowing access for results");
   }
 }
 
@@ -822,10 +821,7 @@ if (now < new Date(contest.startTime)) {
   });
 }
 if (!contest.isInstantBattle && now > new Date(contest.endTime)) {
-  return res.status(400).json({
-    success: false,
-    message: "Contest already ended"
-  });
+  console.log("⚠️ Contest ended, but allowing flow for leaderboard/view");
 }
 
 const io = req.app.get("io");

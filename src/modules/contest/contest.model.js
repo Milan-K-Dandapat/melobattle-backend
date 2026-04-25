@@ -29,6 +29,10 @@ const manualQuestionSchema = new mongoose.Schema({
     type: Number,
     min: 0
   },
+  time: {
+  type: Number,
+  default: 10 // 🔥 REQUIRED for BattleScreen timer
+},
 
   // --- LIVE CODING SPECIFIC FIELDS ---
   title: { 
@@ -149,11 +153,10 @@ const contestSchema = new mongoose.Schema(
       default: 0
     },
 
-    participants: {
-  type: [mongoose.Schema.Types.ObjectId],
-  ref: "User",
-  default: []
-},
+    participants: [{
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User"
+}],
 
 
     // 🔥 COMPLETION TRACKER: Stores IDs of users who finished the battle
