@@ -48,16 +48,17 @@ exports.createExamUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-   const newUser = new ExamAuth({
+ const newUser = new ExamAuth({
   userId,
   password: hashedPassword,
+  plainPassword: password, // 🔥 ADD THIS LINE
   contestId
 });
 
     await newUser.save();
 
     // ✅ FIXED LINE
-    const users = await ExamAuth.find({ contestId });
+    const users = await ExamAuth.find({ contestId }).select("+plainPassword");
 
     res.json({
       success: true,
@@ -73,12 +74,23 @@ exports.getUsersByContest = async (req, res) => {
   try {
     const { contestId } = req.params;
 
-    const users = await ExamAuth.find({ contestId });
+    const users = await ExamAuth.find({ contestId }).select("+plainPassword");
 
     res.json({
       success: true,
       users
     });
+
+  } catch (err) {
+    res.status(500).json({ success: false });
+  }
+};
+// 🔥 DELETE USER
+exports.deleteExamUser = async (req, res) => {
+  try {
+    await ExamAuth.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true });
 
   } catch (err) {
     res.status(500).json({ success: false });
