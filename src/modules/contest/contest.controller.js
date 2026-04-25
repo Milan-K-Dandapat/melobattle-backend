@@ -98,14 +98,20 @@ if (isInstantBattle) {
   start = new Date();
 } else {
   // 🔥 FIX: preserve exact time (no double conversion)
-  start = new Date(startTime + "Z");
+  let start;
+
+if (isInstantBattle) {
+  start = new Date();
+} else {
+  start = new Date(startTime);
 
   if (isNaN(start.getTime())) {
     return res.status(400).json({
       success: false,
-      message: "Invalid startTime format"
+      message: "Invalid startTime format. Use ISO format."
     });
   }
+}
 }
 
 const endTime = new Date(
@@ -660,7 +666,7 @@ if (!contest.isInstantBattle) {
       success: false,
       message: "Battle not started",
       isBeforeStart: true,
-      startTime: contest.startTime
+      startTime: new Date(contest.startTime).toISOString()
     });
   }
 
@@ -688,7 +694,7 @@ res.json({
     duration: contest.duration,
     isCompletedByUser: false,
     isInstantBattle: contest.isInstantBattle || false,
-    startTime: contest.startTime // 🔥 ADD THIS LINE
+    startTime: new Date(contest.startTime).toISOString() // 🔥 ADD THIS LINE
   }
 });
   } catch (error) {
