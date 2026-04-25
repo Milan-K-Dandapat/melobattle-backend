@@ -11,12 +11,9 @@ exports.loginExam = async (req, res) => {
   });
 }
 
-    const user = await ExamAuth.findOne({
+   const user = await ExamAuth.findOne({
   userId,
-  $or: [
-    { contestId: contestId },  // assigned user
-    { contestId: null }        // unassigned user
-  ]
+  contestId
 });
 
     if (!user) {
@@ -45,22 +42,22 @@ exports.loginExam = async (req, res) => {
 };
 exports.createExamUser = async (req, res) => {
   try {
-    const { userId, password } = req.body;
+    const { userId, password, contestId } = req.body;
 
-    await ExamAuth.deleteOne({ userId });
+   await ExamAuth.deleteOne({ userId, contestId });
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = new ExamAuth({
-      userId,
-      password: hashedPassword,
-      contestId: null
-    });
+   const newUser = new ExamAuth({
+  userId,
+  password: hashedPassword,
+  contestId
+});
 
     await newUser.save();
 
     // ✅ FIXED LINE
-    const users = await ExamAuth.find({ contestId: null });
+    const users = await ExamAuth.find({ contestId });
 
     res.json({
       success: true,
@@ -72,29 +69,17 @@ exports.createExamUser = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
-exports.assignUsersToContest = async (req, res) => {
+exports.getUsersByContest = async (req, res) => {
   try {
-    const { contestId, userIds } = req.body;
+    const { contestId } = req.params;
 
-    await ExamAuth.updateMany(
-      { userId: { $in: userIds } },
-      { $set: { contestId } }
-    );
-
-    res.json({ success: true });
-
-  } catch (err) {
-    res.status(500).json({ success: false });
-  }
-};
-exports.getAllExamUsers = async (req, res) => {
-  try {
-    const users = await ExamAuth.find({ contestId: null });
+    const users = await ExamAuth.find({ contestId });
 
     res.json({
       success: true,
       users
     });
+
   } catch (err) {
     res.status(500).json({ success: false });
   }

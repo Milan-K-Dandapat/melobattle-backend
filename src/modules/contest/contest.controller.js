@@ -37,11 +37,21 @@ exports.createContest = async (req, res) => {
 } = req.body;
 
     if (!title || !type || entryFee === undefined || !maxParticipants || !category) {
-      return res.status(400).json({
-        success: false,
-        message: "Missing required fields: title, category, type, entryFee, or maxParticipants"
-      });
-    }
+  return res.status(400).json({
+    success: false,
+    message: "Missing required fields: title, category, type, entryFee, or maxParticipants"
+  });
+}
+
+// 🔥 ADD THIS EXACTLY BELOW
+if (mode === "exam") {
+  if (!req.body.startTime && !isInstantBattle) {
+    return res.status(400).json({
+      success: false,
+      message: "Exam must have start time"
+    });
+  }
+}
 
     // 🔥 Sponsored Safety Check
     if (isSponsored && (!sponsorPrize || sponsorPrize <= 0)) {
