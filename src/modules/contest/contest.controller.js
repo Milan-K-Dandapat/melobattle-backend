@@ -90,28 +90,19 @@ if (mode === "exam") {
         calculatedPrizePool = Number(req.body.prizePool);
       }
     }
-
-// 🔥 Instant battles start immediately
 let start;
-
-if (isInstantBattle) {
-  start = new Date();
-} else {
-  // 🔥 FIX: preserve exact time (no double conversion)
-  let start;
 
 if (isInstantBattle) {
   start = new Date();
 } else {
   start = new Date(startTime);
 
-  if (isNaN(start.getTime())) {
+  if (!startTime || isNaN(start.getTime())) {
     return res.status(400).json({
       success: false,
-      message: "Invalid startTime format. Use ISO format."
+      message: "Invalid or missing startTime"
     });
   }
-}
 }
 
 const endTime = new Date(
@@ -352,6 +343,8 @@ exports.getAllContests = async (req, res) => {
 
       return {
   ...contest,
+  startTime: contest.startTime ? new Date(contest.startTime).toISOString() : null,
+  endTime: contest.endTime ? new Date(contest.endTime).toISOString() : null,
 
   mode: contest.mode || "battle",   // ✅ ADD EXACTLY HERE
 
@@ -666,7 +659,9 @@ if (!contest.isInstantBattle) {
       success: false,
       message: "Battle not started",
       isBeforeStart: true,
-      startTime: new Date(contest.startTime).toISOString()
+      startTime: contest.startTime
+  ? new Date(contest.startTime).toISOString()
+  : null
     });
   }
 
@@ -694,7 +689,9 @@ res.json({
     duration: contest.duration,
     isCompletedByUser: false,
     isInstantBattle: contest.isInstantBattle || false,
-    startTime: new Date(contest.startTime).toISOString() // 🔥 ADD THIS LINE
+    startTime: contest.startTime
+  ? new Date(contest.startTime).toISOString()
+  : null// 🔥 ADD THIS LINE
   }
 });
   } catch (error) {
