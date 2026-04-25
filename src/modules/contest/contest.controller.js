@@ -574,10 +574,11 @@ function shuffleQuestionsAndOptions(questions) {
     const newCorrectIndex = shuffledOptions.indexOf(correctOption);
 
     return {
-      ...q,
-      options: shuffledOptions,
-      correctAnswer: newCorrectIndex // 🔥 update correct index
-    };
+  text: q.text || q.question || q.title, // 🔥 normalize
+  options: shuffledOptions,
+  correctAnswer: newCorrectIndex,
+  time: q.time || 10
+};
 
   });
 
