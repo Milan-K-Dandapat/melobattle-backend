@@ -98,7 +98,7 @@ const contest = await Contest.create({
   endTime: endTime,
 
   isInstantBattle: isInstantBattle || false, // 🔥 ADD THIS
-  questions: questions,
+  questions: Array.isArray(questions) ? questions : [],
   useRandomQuestions: useRandomQuestions || false,
   randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
@@ -601,16 +601,7 @@ exports.getBattleQuestions = async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized participant" });
     }
 
-    // 🚨 BLOCK 2: Check for existing play-through (The core fix)
-    const alreadyPlayed = contest.completedParticipants && contest.completedParticipants.some(id => id.toString() === userId);
-    if (alreadyPlayed) {
-  console.log("⚠️ Allowing replay for debug");
-
-  // ❌ REMOVE BLOCK
-  // return res.status(403)...
-
-  // ✅ allow flow to continue
-}
+    const alreadyPlayed = false;
 
     const quizData = await contestService.getArenaQuestions(contest._id);
 
@@ -618,25 +609,10 @@ exports.getBattleQuestions = async (req, res) => {
    🔐 APPLY QUESTION + OPTION SHUFFLING
 ========================================= */
 
-let questions;
+const questions = contest.questions || [];
 
-// 🔥 PRIORITY FIX
-if (contest.questions && contest.questions.length > 0) {
-  questions = contest.questions;
-} else if (quizData?.questions && quizData.questions.length > 0) {
-  questions = quizData.questions;
-} else {
-  return res.status(400).json({
-    success: false,
-    message: "No questions found in contest"
-  });
-}
-
-if (!questions || questions.length === 0) {
-  return res.status(400).json({
-    success: false,
-    message: "No questions found in contest"
-  });
+if (!questions.length) {
+  console.log("❌ No questions in DB");
 }
 
 // Shuffle questions and options
