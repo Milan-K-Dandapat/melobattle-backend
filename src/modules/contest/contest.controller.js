@@ -98,7 +98,7 @@ if (isInstantBattle) {
   start = new Date();
 } else {
   // 🔥 FIX: preserve exact time (no double conversion)
-  start = new Date(startTime);
+  start = new Date(startTime + "Z");
 
   if (isNaN(start.getTime())) {
     return res.status(400).json({
