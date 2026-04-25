@@ -32,7 +32,8 @@ exports.createContest = async (req, res) => {
   winnerPercentage,
   useRandomQuestions,
   randomQuestionCount,
-  isInstantBattle   // 🔥 ADD THIS
+  isInstantBattle,
+  mode  // 🔥 ADD THIS
 } = req.body;
 
     if (!title || !type || entryFee === undefined || !maxParticipants || !category) {
@@ -86,16 +87,18 @@ const start = isInstantBattle ? new Date() : new Date(startTime);
 const endTime = new Date(
   start.getTime() + (Number(duration) || 15) * 60000
 );
-
+console.log("🔥 FINAL QUESTIONS SAVED:", JSON.stringify(questions, null, 2));
 const contest = await Contest.create({
   ...req.body,
+  mode: mode || "battle",
+
   category: cleanCategory,
   duration: Number(duration) || 15,
   startTime: start,
   endTime: endTime,
 
   isInstantBattle: isInstantBattle || false, // 🔥 ADD THIS
-  questions: questions || [],
+  questions: Array.isArray(questions) ? questions : [],
   useRandomQuestions: useRandomQuestions || false,
   randomQuestionCount: randomQuestionCount || 10,
   totalCollection,
@@ -113,6 +116,8 @@ const contest = await Contest.create({
     }
 
     await redis.del("contests:active");
+    const keys = await redis.keys("contests:*");
+if (keys.length) await redis.del(keys);
     res.status(201).json({ success: true, data: contest });
 
   } catch (error) {
@@ -138,6 +143,11 @@ exports.updateContest = async (req, res) => {
     }
 
     Object.assign(contest, req.body);
+
+// 🔥 PRESERVE MODE IF NOT SENT
+if (!req.body.mode) {
+  contest.mode = contest.mode || "battle";
+}
 
     /* =========================================
         🔥 RE-CALCULATE PRIZE ON UPDATE
@@ -298,9 +308,12 @@ exports.getAllContests = async (req, res) => {
       }
 
       return {
-        ...contest,
-        status: dynamicStatus,
-        prizePool: computedPrizePool,
+  ...contest,
+
+  mode: contest.mode || "battle",   // ✅ ADD EXACTLY HERE
+
+  status: dynamicStatus,
+  prizePool: computedPrizePool,
 
         // 🔥 USER STATUS FLAGS
         isJoined: Array.isArray(contest.participants)
@@ -408,6 +421,7 @@ const formattedRoster = roster.map((p, index) => ({
       success: true,
       data: {
   ...contest,
+  mode: contest.mode || "battle", 
   isInstantBattle: contest.isInstantBattle || false, // 🔥 ADD THIS
   prizePool: computedPrizePool,
   roster: formattedRoster,
@@ -587,15 +601,7 @@ exports.getBattleQuestions = async (req, res) => {
       return res.status(403).json({ success: false, message: "Unauthorized participant" });
     }
 
-    // 🚨 BLOCK 2: Check for existing play-through (The core fix)
-    const alreadyPlayed = contest.completedParticipants && contest.completedParticipants.some(id => id.toString() === userId);
-    if (alreadyPlayed) {
-      return res.status(403).json({ 
-        success: false, 
-        message: "Battle archived: Access denied for multiple attempts",
-        isCompletedByUser: true 
-      });
-    }
+    const alreadyPlayed = false;
 
     const quizData = await contestService.getArenaQuestions(contest._id);
 
@@ -603,39 +609,26 @@ exports.getBattleQuestions = async (req, res) => {
    🔐 APPLY QUESTION + OPTION SHUFFLING
 ========================================= */
 
-let questions;
+const questions = contest.questions || [];
 
-// 🔥 RANDOM QUESTION MODE
-if (contest.useRandomQuestions && contest.questions?.length > 0) {
-
-  const shuffled = shuffleArray(contest.questions);
-
-  questions = shuffled.slice(
-    0,
-    contest.randomQuestionCount || 10
-  );
-
-} else {
-
-  questions = quizData?.questions || quizData || [];
-
+if (!questions.length) {
+  console.log("❌ No questions in DB");
 }
 
 // Shuffle questions and options
 const securedQuestions = shuffleQuestionsAndOptions(questions);
 
 const securedPayload = {
-  ...quizData,
   questions: securedQuestions
 };
 
 res.json({ 
   success: true, 
-  data: {
-      ...securedPayload,
-      isCompletedByUser: false,
-      isInstantBattle: contest.isInstantBattle || false
-  }
+ data: {
+  questions: securedQuestions,
+  isCompletedByUser: false,
+  isInstantBattle: contest.isInstantBattle || false
+}
 });
   } catch (error) {
     res.status(500).json({ success: false, message: "Combat Sync Terminated: " + error.message });
@@ -729,25 +722,43 @@ exports.getLeaderboard = async (req, res) => {
 exports.joinContest = async (req, res) => {
   try {
     const io = req.app.get("io");
+
     const result = await contestService.joinContest(
-      req.user._id, 
+      req.user._id,
       req.params.contestId || req.body.contestId,
       io
     );
 
     if (io && result) {
-        io.emit("PLAYER_JOINED_UPDATE", { 
-            contestId: req.params.contestId || req.body.contestId, 
-            joinedCount: result.joinedCount 
-        });
+      io.emit("PLAYER_JOINED_UPDATE", {
+        contestId: req.params.contestId || req.body.contestId,
+        joinedCount: result.joinedCount
+      });
     }
 
-    res.json({ success: true, ...result });
+    // ✅ FORCE isJoined TRUE
+    res.json({
+      success: true,
+      isJoined: true,
+      joinedCount: result?.joinedCount || 1
+    });
+
   } catch (error) {
-    if (error.message.includes("already joined") || error.message.includes("already deployed")) {
-        return res.json({ success: true, message: "Warrior already authorized" });
+
+    if (
+      error.message.includes("already joined") ||
+      error.message.includes("already deployed")
+    ) {
+      return res.json({
+        success: true,
+        isJoined: true
+      });
     }
-    res.status(400).json({ success: false, message: error.message });
+
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 };
 
@@ -763,6 +774,12 @@ exports.startBattle = async (req, res) => {
     }
 
   const now = new Date();
+  if (contest.status === "COMPLETED") {
+  return res.status(400).json({
+    success: false,
+    message: "Contest already completed"
+  });
+}
 
 if (now < new Date(contest.startTime)) {
   return res.status(400).json({
