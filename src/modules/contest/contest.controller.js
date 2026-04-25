@@ -654,7 +654,8 @@ const questions = (contest.questions || []).filter(q =>
 const now = new Date();
 
 if (!contest.isInstantBattle) {
-  if (!contest.isInstantBattle && now < new Date(contest.startTime)) {
+
+  if (now < new Date(contest.startTime)) {
     return res.status(400).json({
       success: false,
       message: "Battle not started",
@@ -663,10 +664,10 @@ if (!contest.isInstantBattle) {
     });
   }
 
-  // 🔥 FIX: DO NOT BLOCK AFTER END
   if (now > new Date(contest.endTime)) {
     console.log("⚠️ Battle time ended, but allowing access for results");
   }
+
 }
 
 if (!questions.length) {
