@@ -92,12 +92,39 @@ if (mode === "exam") {
     }
 
 // 🔥 Instant battles start immediately
-const start = isInstantBattle ? new Date() : new Date(startTime);
+let start;
+
+if (isInstantBattle) {
+  start = new Date();
+} else {
+  // 🔥 FIX: preserve exact time (no double conversion)
+  start = new Date(startTime);
+
+  if (isNaN(start.getTime())) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid startTime format"
+    });
+  }
+}
 
 const endTime = new Date(
   start.getTime() + (Number(duration) || 15) * 60000
 );
 console.log("🔥 FINAL QUESTIONS SAVED:", JSON.stringify(questions, null, 2));
+let status;
+
+if (isInstantBattle) {
+  status = "LIVE";
+} else {
+  const now = new Date();
+
+  if (start > now) {
+    status = "UPCOMING";
+  } else {
+    status = "LIVE"; // 🔥 auto start if time already passed
+  }
+}
 const contest = await Contest.create({
   ...req.body,
   mode: mode || "battle",
@@ -114,7 +141,7 @@ const contest = await Contest.create({
   totalCollection,
   prizePool: calculatedPrizePool,
   winnerPercentage: winnerPercentage ?? 60,
-  status: isInstantBattle ? "LIVE" : (req.body.status || "UPCOMING"),
+  status,
   joinedCount: 0,
   participants: [],
   completedParticipants: []
@@ -293,9 +320,9 @@ exports.getAllContests = async (req, res) => {
     return "LIVE";
   }
 
-  if (contest.endTime && now > new Date(contest.endTime)) {
-    return "PROCESSING";
-  }
+  if (!contest.isInstantBattle && contest.endTime && now > new Date(contest.endTime)) {
+  return "PROCESSING";
+}
 
   return contest.status;
 
@@ -627,7 +654,7 @@ const questions = (contest.questions || []).filter(q =>
 const now = new Date();
 
 if (!contest.isInstantBattle) {
-  if (now < new Date(contest.startTime)) {
+  if (!contest.isInstantBattle && now < new Date(contest.startTime)) {
     return res.status(400).json({
       success: false,
       message: "Battle not started",

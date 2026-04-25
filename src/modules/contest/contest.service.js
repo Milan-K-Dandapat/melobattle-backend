@@ -30,6 +30,17 @@ exports.joinContest = async (userId, contestId, io) => {
   try {
     // 1. Fetch contest and validate existence
     const contest = await Contest.findById(contestId).session(session);
+    const now = new Date();
+
+if (!contest.isInstantBattle) {
+  if (contest.startTime && now < new Date(contest.startTime)) {
+    throw new Error("Battle not started yet");
+  }
+
+  if (contest.endTime && now > new Date(contest.endTime)) {
+    throw new Error("Contest already ended");
+  }
+}
     if (!contest) throw new Error("Battle not found in the matrix");
 
     // 🔥 COMPLETION CHECK: Prevent joining if already played
@@ -53,27 +64,19 @@ exports.joinContest = async (userId, contestId, io) => {
 
     // 3. Check contest status
     // 3. Check contest status
-if (!contest.isInstantBattle && !["UPCOMING", "LIVE"].includes(contest.status)) {
-  throw new Error("This battle protocol is no longer active");
-}
+const now = new Date();
 
+if (!contest.isInstantBattle) {
+  if (contest.endTime && now > new Date(contest.endTime)) {
+    throw new Error("Contest already ended");
+  }
+}
     // 4. Check spot availability
     // 🔥 AUTO RESET FOR INSTANT BATTLES
-if (contest.joinedCount >= contest.maxParticipants) {
-
-  if (contest.isInstantBattle) {
-
-    // reset arena
-    contest.joinedCount = 0;
-    contest.participants = [];
-    contest.completedParticipants = [];
-
-  } else {
-
+if (!contest.isInstantBattle) {
+  if (contest.joinedCount >= contest.maxParticipants) {
     throw new Error("Arena is full. Access denied.");
-
   }
-
 }
 
     // 5. Fetch user and check balance
@@ -123,6 +126,10 @@ if (contest.joinedCount >= contest.maxParticipants) {
 
     // 7. Update contest stats
     contest.joinedCount += 1;
+    // 🔥 RESET LOGIC FOR INSTANT BATTLES
+if (contest.isInstantBattle && contest.joinedCount >= contest.maxParticipants) {
+  contest.joinedCount = 0; // reset for next match cycle
+}
 
     /* =========================================
         🔥 DYNAMIC PRIZE CALCULATION FIX
@@ -235,12 +242,17 @@ exports.getArenaQuestions = async (contestId) => {
     }
 
     // 🔥 CRITICAL: Prevent fetching questions if the battle hasn't technically started.
-    if (
-  contest.isInstantBattle !== true &&
-  !["LIVE", "UPCOMING"].includes(contest.status)
-) {
-  throw new Error(`Arena status is ${contest.status}. Access denied.`);
-} 
+ const now = new Date();
+
+if (!contest.isInstantBattle) {
+  if (contest.startTime && now < new Date(contest.startTime)) {
+    throw new Error("Battle not started yet");
+  }
+
+  if (contest.endTime && now > new Date(contest.endTime)) {
+    throw new Error("Battle ended");
+  }
+}
 
     // Fallback logic: Ensure questions were actually uploaded for this battle
     if (!contest.questions || contest.questions.length === 0) {
