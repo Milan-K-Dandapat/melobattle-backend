@@ -1065,6 +1065,9 @@ await contest.save();
 // 5️⃣ Clear cache
 await redis.del(`contests:active:${userId}`);
 
+// 5️⃣ Clear cache
+await redis.del(`contests:active:${userId.toString()}`);
+
 // ✅ Final response
 return res.json({
   success: true,
@@ -1309,10 +1312,12 @@ if (
   );
 }
 
-    return res.json({
-      success: true,
-      message: "Score saved"
-    });
+await redis.del(`contests:active:${userId.toString()}`);
+
+return res.json({
+  success: true,
+  message: "Score saved"
+});
 
   } catch (err) {
     console.error("🔥 submitScore error:", err.message);
