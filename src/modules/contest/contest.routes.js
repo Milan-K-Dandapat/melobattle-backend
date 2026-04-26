@@ -49,28 +49,8 @@ router.post(
   "/:id/force-close",
   protect,
   roleMiddleware("ADMIN"),
-  async (req, res) => {
-    try {
-      const Contest = require("./contest.model");
-      const contest = await Contest.findById(req.params.id);
-      if (!contest) return res.status(404).json({ success: false, message: "Contest not found" });
-      
-      contest.status = "COMPLETED";
-      await contest.save();
-      
-      // Call the prize distribution helper from your controller
-      // Ensure you exported closeContestAndDistributePrizes in contest.controller.js
-      if (contestController.closeContestAndDistributePrizes) {
-          await contestController.closeContestAndDistributePrizes(contest, req.app.get("io"));
-      }
-
-      res.json({ success: true, message: "Contest closed and prizes distributed manually." });
-    } catch (err) {
-      res.status(500).json({ success: false, message: err.message });
-    }
-  }
+  contestController.forceCloseContest
 );
-
 router.put(
   "/:id", 
   protect, 

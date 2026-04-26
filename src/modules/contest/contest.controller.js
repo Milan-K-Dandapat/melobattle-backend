@@ -1008,11 +1008,29 @@ if (io) {
 
 }
 
-// 4️⃣ Lock contest for this user
+
+// add user to completed list
 await Contest.updateOne(
   { _id: contestId },
   { $addToSet: { completedParticipants: userId } }
 );
+
+// 🔥 AUTO COMPLETE CONTEST WHEN FULL
+const updatedContest = await Contest.findById(contestId);
+
+if (
+  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
+) {
+  updatedContest.status = "COMPLETED";
+  updatedContest.joinedCount = updatedContest.maxParticipants;
+  await updatedContest.save();
+
+  // 🔥 ADD THIS (VERY IMPORTANT)
+  await closeContestAndDistributePrizes(
+    updatedContest,
+    req.app.get("io")
+  );
+}
 await contest.save();
 
 // 5️⃣ Clear cache
@@ -1230,10 +1248,25 @@ exports.submitScore = async (req, res) => {
     });
 
     // 3️⃣ Mark completed
-    await Contest.updateOne(
-      { _id: contestId },
-      { $addToSet: { completedParticipants: userId } }
-    );
+await Contest.updateOne(
+  { _id: contestId },
+  { $addToSet: { completedParticipants: userId } }
+);
+
+// 🔥 AUTO COMPLETE WHEN FULL
+const contest = await Contest.findById(contestId);
+
+if (
+  contest.completedParticipants.length >= contest.maxParticipants
+){
+  contest.status = "COMPLETED";
+  contest.joinedCount = contest.maxParticipants;
+  await contest.save();
+  await closeContestAndDistributePrizes(
+    contest,
+    req.app.get("io")
+  );
+}
 
     return res.json({
       success: true,

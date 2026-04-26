@@ -30,6 +30,7 @@ exports.joinContest = async (userId, contestId, io) => {
   try {
     // 1. Fetch contest and validate existence
     const contest = await Contest.findById(contestId).session(session);
+     if (!contest) throw new Error("Battle not found in the matrix");
     const now = new Date();
 
 if (!contest.isInstantBattle) {
@@ -41,7 +42,7 @@ if (!contest.isInstantBattle) {
     throw new Error("Contest already ended");
   }
 }
-    if (!contest) throw new Error("Battle not found in the matrix");
+   
 
     // 🔥 COMPLETION CHECK: Prevent joining if already played
     if (
@@ -75,7 +76,6 @@ if (!contest.isInstantBattle) {
         Deducts from Deposit first, then Winnings.
     ========================================= */
     const entryFee = Number(contest.entryFee);
-    const balanceBefore = user.walletBalance;
     
     if (user.depositBalance >= entryFee) {
         user.depositBalance -= entryFee;
@@ -218,12 +218,12 @@ exports.getArenaQuestions = async (contestId, userId) => {
      * 🔥 MANUAL SYNC: Targeted Retrieval
      * We fetch the full document to check status before allowing question access.
      */
-    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants isInstantBattle");
+    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants isInstantBattle startTime endTime");
 
     if (!contest) {
       throw new Error("Arena signal not found");
     }
-// 🔐 HARD LOCK: BLOCK RE-ENTRY AFTER COMPLETION
+    // 🔐 BLOCK RE-ENTRY AFTER COMPLETION
 if (
   contest.completedParticipants &&
   contest.completedParticipants.some(
@@ -232,6 +232,7 @@ if (
 ) {
   throw new Error("Access Denied: Battle already completed");
 }
+
     // 🔥 CRITICAL: Prevent fetching questions if the battle hasn't technically started.
  const now = new Date();
 

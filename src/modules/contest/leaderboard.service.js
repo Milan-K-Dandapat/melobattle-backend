@@ -83,7 +83,7 @@ exports.updateLeaderboard = async (
 await Participant.findOneAndUpdate(
   { contestId: new mongoose.Types.ObjectId(contestId), userId },
   {
-    $max: { score: score }, // ✅ IMPORTANT FIX
+    $max: { score: score }, // ✅ KEEP HIGHEST SCORE ONLY
     $set: {
       contestId: new mongoose.Types.ObjectId(contestId),
       userId,
@@ -93,7 +93,6 @@ await Participant.findOneAndUpdate(
   },
   { upsert: true, new: true }
 );
-
     // Emit live update to all players currently in the contest room
   if (io) {
   io.to(`contest_${contestId}`).emit("LIVE_LEADERBOARD_UPDATE", {
@@ -129,8 +128,10 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     })
       .populate("userId", "name username avatar rating totalWins")
       .sort({
-  score: -1
-})
+        score: -1,
+        accuracy: -1,
+        completionTime: 1,
+      })
       .limit(limit)
       .lean();
 
@@ -162,7 +163,7 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
         username: p.userId?.username || p.userId?.name || "Warrior",
         avatar: p.userId?.avatar || null,
         rating: p.userId?.rating || 1000,
-        score: Number(p.score || 0),
+        score: p.score,
         accuracy: p.accuracy,
         time: p.completionTime,
         prizeWon: 0
@@ -170,7 +171,9 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     });
 
     // 🔥 Apply weighted payout with default 60%
-    const contest = await Contest.findById(objectContestId).lean();
+    const contest = await Contest.findById(objectContestId)
+  .select("prizePool winnerPercentage")
+  .lean();
 
     if (contest && contest.prizePool > 0) {
       const winnerPercentage = contest.winnerPercentage || 60;
