@@ -6,7 +6,7 @@ const examAuthSchema = new mongoose.Schema({
 
   plainPassword: {            // 🔥 ADD THIS BLOCK
     type: String,
-    select: false
+    select: true   
   },
 
   contestId: { 

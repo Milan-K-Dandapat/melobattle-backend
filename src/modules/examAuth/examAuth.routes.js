@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const examAuthController = require("./examAuth.controller");
 
 // ✅ ONLY ONE IMPORT
 const { 

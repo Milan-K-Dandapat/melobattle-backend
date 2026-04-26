@@ -812,20 +812,49 @@ exports.joinContest = async (req, res) => {
   try {
     const io = req.app.get("io");
 
+    const contestId = req.params.contestId || req.body.contestId;
+
+    // 🔥 ADD THIS BLOCK (EXAM MODE CHECK)
+    const contest = await Contest.findById(contestId);
+
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found"
+      });
+    }
+
+    // 🔥 CRITICAL FIX: exam mode check
+    if (contest.mode === "exam") {
+      const ExamAuth = require("../examAuth/examAuth.model");
+
+      const examUser = await ExamAuth.findOne({
+        contestId,
+        isUsed: true // ✅ only allow logged-in users
+      });
+
+      if (!examUser) {
+        return res.status(403).json({
+          success: false,
+          message: "Please login to exam first"
+        });
+      }
+    }
+
+    // 🔥 ORIGINAL LOGIC
     const result = await contestService.joinContest(
       req.user._id,
-      req.params.contestId || req.body.contestId,
+      contestId,
       io
     );
 
     if (io && result) {
       io.emit("PLAYER_JOINED_UPDATE", {
-        contestId: req.params.contestId || req.body.contestId,
+        contestId,
         joinedCount: result.joinedCount
       });
     }
 
-    // ✅ FORCE isJoined TRUE
     res.json({
       success: true,
       isJoined: true,

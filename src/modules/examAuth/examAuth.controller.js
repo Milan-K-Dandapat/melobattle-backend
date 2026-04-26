@@ -1,5 +1,6 @@
 const ExamAuth = require("./examAuth.model");
 const bcrypt = require("bcryptjs");
+const mongoose = require("mongoose");
 
 exports.loginExam = async (req, res) => {
   try {
@@ -11,11 +12,10 @@ exports.loginExam = async (req, res) => {
   });
 }
 
-   const user = await ExamAuth.findOne({
+ const user = await ExamAuth.findOne({
   userId,
-  contestId
+  contestId: new mongoose.Types.ObjectId(contestId)
 });
-
     if (!user) {
       return res.status(401).json({ success: false, message: "Invalid ID" });
     }
@@ -38,7 +38,10 @@ exports.createExamUser = async (req, res) => {
   try {
     const { userId, password, contestId } = req.body;
 
-   await ExamAuth.deleteOne({ userId, contestId });
+  await ExamAuth.deleteOne({
+  userId,
+  contestId: new mongoose.Types.ObjectId(contestId)
+});
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -52,7 +55,9 @@ exports.createExamUser = async (req, res) => {
     await newUser.save();
 
     // ✅ FIXED LINE
-    const users = await ExamAuth.find({ contestId }).select("+plainPassword");
+   const users = await ExamAuth.find({
+  contestId: new mongoose.Types.ObjectId(contestId)
+}).select("+plainPassword");
 
     res.json({
       success: true,
@@ -68,7 +73,9 @@ exports.getUsersByContest = async (req, res) => {
   try {
     const { contestId } = req.params;
 
-    const users = await ExamAuth.find({ contestId }).select("+plainPassword");
+    const users = await ExamAuth.find({
+  contestId: new mongoose.Types.ObjectId(contestId)
+}).select("+plainPassword");
 
     res.json({
       success: true,
