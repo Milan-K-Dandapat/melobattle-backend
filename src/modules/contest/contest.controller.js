@@ -378,12 +378,16 @@ exports.getAllContests = async (req, res) => {
           : false,
 
         isCompletedByUser: Array.isArray(contest.completedParticipants)
-          ? contest.completedParticipants.some(
-              (id) => id.toString() === userId
-            )
-          : false
+  ? contest.completedParticipants.some(
+      (id) => id.toString() === userId
+    )
+  : false,
+// 🔥 ADD THIS EXACT LINE BELOW
+completedParticipants: contest.completedParticipants || []
       };
+      
     });
+    
 
     const response = {
       success: true,
