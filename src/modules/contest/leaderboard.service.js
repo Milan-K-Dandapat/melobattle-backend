@@ -129,7 +129,9 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     })
       .populate("userId", "name username avatar rating totalWins")
       .sort({
-  score: -1
+  score: -1,
+  accuracy: -1,
+  completionTime: 1
 })
       .limit(limit)
       .lean();
@@ -206,17 +208,19 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
 }));
 
 // 🔥 SAVE RANK + PRIZE TO DB
-for (const player of finalPlayers) {
-  await Participant.findOneAndUpdate(
-    { contestId: objectContestId, userId: player.userId },
-    {
-      $set: {
-        rank: player.rank,
-        prizeWon: player.prizeWon
+await Promise.all(
+  finalPlayers.map(player =>
+    Participant.findOneAndUpdate(
+      { contestId: objectContestId, userId: player.userId },
+      {
+        $set: {
+          rank: player.rank,
+          prizeWon: player.prizeWon
+        }
       }
-    }
-  );
-}
+    )
+  )
+);
 
 return finalPlayers;
 
@@ -224,17 +228,19 @@ return finalPlayers;
     }
 
     // 🔥 Save ranks even if prize pool is zero
-for (const player of rankedPlayers) {
-  await Participant.findOneAndUpdate(
-    { contestId: objectContestId, userId: player.userId },
-    {
-      $set: {
-        rank: player.rank,
-        prizeWon: 0
+await Promise.all(
+  rankedPlayers.map(player =>
+    Participant.findOneAndUpdate(
+      { contestId: objectContestId, userId: player.userId },
+      {
+        $set: {
+          rank: player.rank,
+          prizeWon: 0
+        }
       }
-    }
-  );
-}
+    )
+  )
+);
 
 return rankedPlayers;
 
@@ -250,11 +256,14 @@ return rankedPlayers;
 exports.getUserRank = async (contestId, userId) => {
   try {
     // Check DB first for finalized rank
-    const participant = await Participant.findOne({ contestId, userId });
+    const participant = await Participant.findOne({
+  contestId: new mongoose.Types.ObjectId(contestId),
+  userId
+});
     if (participant && participant.rank) return participant.rank;
 
     // Fallback to Redis for live rank
-    const rank = await redis.zrevrank(getKey(contestId), userId);
+    const rank = await redis.zrevrank(getKey(contestId), userId.toString());
     return rank !== null ? rank + 1 : null;
   } catch (error) {
     return null;
@@ -279,11 +288,7 @@ exports.saveUserScore = async ({ userId, contestId, score, accuracy, timeTaken }
 
     // 2. 🔥 THE CRITICAL LOCK & SYNC:
     // Push user ID into the Contest's completedParticipants array.
-    // Also increment the total matches for the user to unlock their withdrawals.
-    await Contest.findByIdAndUpdate(
-      contestId,
-      { $addToSet: { completedParticipants: userId } }
-    );
+    // Also increment the total matches for the user to unlock their withdrawals
 
 // 🔥 CONTROLLED XP + ELO SYSTEM
 
@@ -307,10 +312,10 @@ else eloGain = 5;
 await User.findByIdAndUpdate(userId, {
   $inc: {
     totalMatches: 1,
-    points: xpGain,   // XP
-    rating: eloGain   // ELO
+    points: xpGain,
+    rating: eloGain
   }
-});
+}, { new: true });
 
     return { score, accuracy, timeTaken };
   } catch (error) {

@@ -96,7 +96,6 @@ if (isInstantBattle) {
   start = new Date();
 } else {
 // 🔥 FIX TIMEZONE ISSUE (VERY IMPORTANT)
-let start;
 
 if (isInstantBattle) {
   start = new Date();
@@ -1008,12 +1007,22 @@ if (io) {
 
 }
 
-// 4️⃣ Lock contest for this user
+// add user to completed list
 await Contest.updateOne(
   { _id: contestId },
   { $addToSet: { completedParticipants: userId } }
 );
-await contest.save();
+
+// 🔥 AUTO COMPLETE CONTEST WHEN FULL
+const updatedContest = await Contest.findById(contestId);
+
+if (
+  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
+) {
+  updatedContest.status = "COMPLETED";
+  updatedContest.joinedCount = updatedContest.maxParticipants; // 🔥 FIX COUNT
+  await updatedContest.save();
+}
 
 // 5️⃣ Clear cache
 await redis.del(`contests:active:${userId}`);
@@ -1229,11 +1238,23 @@ exports.submitScore = async (req, res) => {
       timeTaken: 0
     });
 
-    // 3️⃣ Mark completed
-    await Contest.updateOne(
-      { _id: contestId },
-      { $addToSet: { completedParticipants: userId } }
-    );
+// 3️⃣ Mark completed
+await Contest.updateOne(
+  { _id: contestId },
+  { $addToSet: { completedParticipants: userId } }
+);
+
+// 🔥 GET UPDATED CONTEST (VERY IMPORTANT)
+const updatedContest = await Contest.findById(contestId);
+
+// 🔥 AUTO COMPLETE WHEN FULL
+if (
+  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
+) {
+  updatedContest.status = "COMPLETED";
+  updatedContest.joinedCount = updatedContest.maxParticipants;
+  await updatedContest.save();
+}
 
     return res.json({
       success: true,

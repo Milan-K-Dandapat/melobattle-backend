@@ -33,10 +33,6 @@ exports.joinContest = async (userId, contestId, io) => {
     const now = new Date();
 
 if (!contest.isInstantBattle) {
-  if (contest.startTime && now < new Date(contest.startTime)) {
-    throw new Error("Battle not started yet");
-  }
-
   if (contest.endTime && now > new Date(contest.endTime)) {
     throw new Error("Contest already ended");
   }
@@ -82,7 +78,7 @@ if (!contest.isInstantBattle) {
     } else {
         const remaining = entryFee - (user.depositBalance || 0);
         user.depositBalance = 0;
-        user.winningBalance = (user.winningBalance || 0) - remaining;
+        user.winningBalance = Math.max(0, (user.winningBalance || 0) - remaining);
     }
 
     // Sync total wallet balance
@@ -110,8 +106,8 @@ if (!contest.isInstantBattle) {
     // 7. Update contest stats
     contest.joinedCount += 1;
     // 🔥 RESET LOGIC FOR INSTANT BATTLES
-if (contest.isInstantBattle && contest.joinedCount >= contest.maxParticipants) {
-  contest.joinedCount = 0; // reset for next match cycle
+if (contest.isInstantBattle && contest.joinedCount > contest.maxParticipants) {
+  contest.joinedCount = contest.maxParticipants;
 }
 
     /* =========================================
@@ -135,6 +131,7 @@ if (contest.isInstantBattle && contest.joinedCount >= contest.maxParticipants) {
 
     // Push participant
     if (!contest.participants) contest.participants = [];
+    contest.participants = contest.participants || [];
 
     if (
       !contest.participants.some(
@@ -218,8 +215,9 @@ exports.getArenaQuestions = async (contestId, userId) => {
      * 🔥 MANUAL SYNC: Targeted Retrieval
      * We fetch the full document to check status before allowing question access.
      */
-    const contest = await Contest.findById(contestId).lean().select("questions status duration title completedParticipants isInstantBattle");
-
+   const contest = await Contest.findById(contestId)
+  .lean()
+  .select("questions status duration title completedParticipants isInstantBattle startTime endTime");
     if (!contest) {
       throw new Error("Arena signal not found");
     }
