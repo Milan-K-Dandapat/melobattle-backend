@@ -288,7 +288,11 @@ exports.saveUserScore = async ({ userId, contestId, score, accuracy, timeTaken }
 
     // 2. 🔥 THE CRITICAL LOCK & SYNC:
     // Push user ID into the Contest's completedParticipants array.
-    // Also increment the total matches for the user to unlock their withdrawals
+    // Also increment the total matches for the user to unlock their withdrawals.
+    await Contest.findByIdAndUpdate(
+      contestId,
+      { $addToSet: { completedParticipants: userId } }
+    );
 
 // 🔥 CONTROLLED XP + ELO SYSTEM
 
@@ -312,10 +316,10 @@ else eloGain = 5;
 await User.findByIdAndUpdate(userId, {
   $inc: {
     totalMatches: 1,
-    points: xpGain,
-    rating: eloGain
+    points: xpGain,   // XP
+    rating: eloGain   // ELO
   }
-}, { new: true });
+});
 
     return { score, accuracy, timeTaken };
   } catch (error) {
