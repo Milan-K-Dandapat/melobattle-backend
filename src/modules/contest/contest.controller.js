@@ -567,6 +567,16 @@ else if (!c.isInstantBattle && now > new Date(c.endTime) && status !== "COMPLETE
 exports.exportContestCSV = async (req, res) => {
   try {
     const contestId = req.params.id;
+    const mode = req.query.mode || "battle"; // 🔥 IMPORTANT
+
+    const contest = await Contest.findById(contestId);
+
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found"
+      });
+    }
 
     const participants = await Participant.find({ contestId })
       .populate("userId", "name username email")
@@ -576,24 +586,61 @@ exports.exportContestCSV = async (req, res) => {
     if (!participants || participants.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No warriors found in this arena"
+        message: "No data found"
       });
     }
 
-    let csv =
-"Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
+    let csv = "";
 
-    participants.forEach((p, index) => {
-      const username = p.userId?.username || p.userId?.name || "Warrior";
-      const email = p.userId?.email || "N/A";
+    /* =========================================
+        ✅ NORMAL BATTLE CSV (DO NOT TOUCH)
+    ========================================= */
+    if (mode === "battle") {
+      csv =
+        "Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
 
-      csv += `${p.rank || index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
-    });
+      participants.forEach((p, index) => {
+        const username = p.userId?.username || p.userId?.name || "Warrior";
+        const email = p.userId?.email || "N/A";
+
+        csv += `${p.rank || index + 1},
+${username},
+${email},
+${p.score || 0},
+${p.accuracy || 0},
+${p.language || ""},
+"${(p.code || "").replace(/"/g, '""')}",
+${p.completionTime || 0},
+${p.prizeWon || 0},
+${p.joinedAt || ""},
+${p.playedAt || ""},
+${p.deviceInfo || ""},
+${p.ipAddress || ""}
+\n`;
+      });
+    }
+
+    /* =========================================
+        🔥 EXAM CSV (NEW)
+    ========================================= */
+    else if (mode === "exam") {
+      csv =
+        "Rank,UserID,Username,Email,Score,Accuracy,TimeTaken,Status,SubmittedAt\n";
+
+      participants.forEach((p, index) => {
+        const username = p.userId?.username || p.userId?.name || "Student";
+        const email = p.userId?.email || "N/A";
+
+        const status = p.playedAt ? "SUBMITTED" : "NOT_SUBMITTED";
+
+        csv += `${p.rank || index + 1},${p.userId?._id || ""},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${status},${p.playedAt || ""}\n`;
+      });
+    }
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=contest_${contestId}.csv`
+      `attachment; filename=${mode}_contest_${contestId}.csv`
     );
 
     res.status(200).send(csv);
@@ -1024,11 +1071,13 @@ await Participant.findOneAndUpdate(
   { contestId, userId },
   {
     score,
-    accuracy,
-    completionTime: timeTaken,
+    accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
+    completionTime: 0,
     playedAt: new Date(),
-    deviceInfo: req.headers["user-agent"] || "",
-    ipAddress: req.ip
+
+    // 🔥 ADD THIS
+    code: code || "",
+    language: language || ""
   },
   {
     new: true,
@@ -1277,7 +1326,7 @@ exports.closeContestAndDistributePrizes = closeContestAndDistributePrizes;
 // 🔥 SAVE SCORE FROM LIVE CODING (IMPORTANT)
 exports.submitScore = async (req, res) => {
   try {
-    const { contestId, score, passedCount, totalCases } = req.body;
+    const { contestId, score, passedCount, totalCases, code, language } = req.body;
     const userId = req.user._id;
 
     // 1️⃣ Save score in Participant
