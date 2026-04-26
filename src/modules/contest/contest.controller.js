@@ -1298,7 +1298,8 @@ await Contest.updateOne(
   { _id: contestId },
   { $addToSet: { completedParticipants: userId } }
 );
-
+// 🔥 KILL THE REDIS CACHE IMMEDIATELY AFTER SAVING
+await redis.del(`contests:active:${userId.toString()}`);
 // 🔥 AUTO COMPLETE WHEN FULL
 const contest = await Contest.findById(contestId);
 
