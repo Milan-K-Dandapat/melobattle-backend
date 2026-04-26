@@ -319,9 +319,12 @@ exports.getAllContests = async (req, res) => {
     return "LIVE";
   }
 
-  if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
-    return contest.status;
-  }
+  if (
+  contest.status === "COMPLETED" ||
+  (contest.completedParticipants?.length >= contest.maxParticipants)
+) {
+  return "COMPLETED";
+}
 
   if (contest.startTime && now < new Date(contest.startTime)) {
     return "UPCOMING";
@@ -847,7 +850,27 @@ exports.joinContest = async (req, res) => {
       contestId,
       io
     );
+// 🔥 AUTO COMPLETE WHEN FULL (JOIN BASED)
+const updatedContest = await Contest.findById(contestId);
 
+if (
+  updatedContest.participants.length >= updatedContest.maxParticipants
+) {
+  updatedContest.status = "COMPLETED";
+
+  await updatedContest.save();
+
+  // 🔥 CLEAR CACHE
+  const keys = await redis.keys("contests:*");
+  if (keys.length) await redis.del(keys);
+
+  // 🔥 OPTIONAL SOCKET UPDATE
+  if (io) {
+    io.emit("CONTEST_FINALIZED", {
+      contestId: updatedContest._id
+    });
+  }
+}
     if (io && result) {
       io.emit("PLAYER_JOINED_UPDATE", {
         contestId,
@@ -1063,7 +1086,9 @@ if (
 await contest.save();
 
 // 5️⃣ Clear cache
-await redis.del(`contests:active:${userId}`);
+// 🔥 CLEAR ALL CONTEST CACHE (IMPORTANT)
+const keys = await redis.keys("contests:*");
+if (keys.length) await redis.del(keys);
 
 // ✅ Final response
 return res.json({
