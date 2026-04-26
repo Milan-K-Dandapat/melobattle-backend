@@ -57,7 +57,22 @@ const participantSchema = new mongoose.Schema(
     ipAddress: {
       type: String,
       default: ""
-    }
+    },
+    // 🔥 LIVE CODING DATA
+language: {
+  type: String,
+  default: ""
+},
+
+code: {
+  type: String,
+  default: ""
+},
+
+examUserId: {
+  type: String,
+  default: null
+}
   },
   {
     timestamps: true

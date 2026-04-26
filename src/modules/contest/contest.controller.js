@@ -578,13 +578,13 @@ exports.exportContestCSV = async (req, res) => {
     }
 
     let csv =
-"Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
+"Rank,Username,Email,ExamUserId,Score,Accuracy,CompletionTime,Language,Code,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
 
     participants.forEach((p, index) => {
       const username = p.userId?.username || p.userId?.name || "Warrior";
       const email = p.userId?.email || "N/A";
 
-      csv += `${p.rank || index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
+      csv += `${p.rank || index + 1},${username},${email},${p.examUserId || ""},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.language || ""},"${(p.code || "").replace(/"/g, '""')}",${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
     });
 
     res.setHeader("Content-Type", "text/csv");
@@ -1252,20 +1252,32 @@ exports.closeContestAndDistributePrizes = closeContestAndDistributePrizes;
 // 🔥 SAVE SCORE FROM LIVE CODING (IMPORTANT)
 exports.submitScore = async (req, res) => {
   try {
-    const { contestId, score, passedCount, totalCases } = req.body;
+    const { 
+  contestId, 
+  score, 
+  passedCount, 
+  totalCases,
+  timeTaken,
+  language,
+  sourceCode,
+  examUserId
+} = req.body;
     const userId = req.user._id;
 
     // 1️⃣ Save score in Participant
-    await Participant.findOneAndUpdate(
-      { contestId, userId },
-      {
-        score,
-        accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
-        completionTime: 0,
-        playedAt: new Date()
-      },
-      { upsert: true, new: true }
-    );
+   await Participant.findOneAndUpdate(
+  { contestId, userId },
+  {
+    score,
+    accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
+    completionTime: timeTaken || 0,
+    playedAt: new Date(),
+    language: language || "",
+    code: sourceCode || "",
+    examUserId: examUserId || null
+  },
+  { upsert: true, new: true }
+);
 
     // 2️⃣ Update leaderboard / XP
     await leaderboardService.saveUserScore({
@@ -1273,7 +1285,7 @@ exports.submitScore = async (req, res) => {
       contestId,
       score,
       accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
-      timeTaken: 0
+      timeTaken: timeTaken || 0
     });
 
     // 3️⃣ Mark completed
