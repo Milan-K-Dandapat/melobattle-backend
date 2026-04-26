@@ -293,10 +293,17 @@ contestSchema.pre("save", async function () {
 contestSchema.methods.getDynamicStatus = function () {
   const now = new Date();
 
-  if (this.status === "COMPLETED" || this.status === "ARCHIVED") {
-    return this.status;
+  // 🔥 PRIORITY 1: If explicitly marked finished, stop here
+  if (this.status === "COMPLETED" || this.status === "ARCHIVED" || this.isProcessed) {
+    return "COMPLETED";
   }
 
+  // 🔥 PRIORITY 2: Instant Battle logic
+  if (this.isInstantBattle) {
+    return "LIVE";
+  }
+
+  // PRIORITY 3: Standard timed battles
   if (this.startTime && now < this.startTime) {
     return "UPCOMING";
   }
@@ -305,13 +312,9 @@ contestSchema.methods.getDynamicStatus = function () {
     return "LIVE";
   }
 
-  if (this.endTime && now > this.endTime && !this.isProcessed) {
-  return "PROCESSING";
-}
-
-if (this.isProcessed) {
-  return "COMPLETED";
-}
+  if (this.endTime && now > this.endTime) {
+    return "PROCESSING";
+  }
 
   return this.status;
 };

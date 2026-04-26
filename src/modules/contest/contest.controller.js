@@ -1311,17 +1311,20 @@ console.log("✅ User added to completedParticipants:", updatedContest.completed
 await redis.del(`contests:active:${userId.toString()}`);
 // 🔥 AUTO COMPLETE WHEN FULL
 const contest = await Contest.findById(contestId);
+// 🔥 AUTO COMPLETE WHEN FULL (Admin Panel Fix)
+// We check updatedContest directly because it contains the freshest data
+if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
+  console.log(`🎯 Contest ${contestId} reached max participants. Closing...`);
+  
+  updatedContest.status = "COMPLETED";
+  updatedContest.isProcessed = true; // ✅ Force move to 'Closed' section
+  updatedContest.joinedCount = updatedContest.maxParticipants;
+  
+  // Use save() so the model's status logic and prize distribution trigger
+  await updatedContest.save();
 
-if (
-  contest.completedParticipants.length >= contest.maxParticipants
-){
-  contest.status = "COMPLETED";
-  contest.joinedCount = contest.maxParticipants;
-  await contest.save();
-  await closeContestAndDistributePrizes(
-    contest,
-    req.app.get("io")
-  );
+  // Trigger Payouts & Leaderboard Finalization
+  await closeContestAndDistributePrizes(updatedContest, req.app.get("io"));
 }
 
 await redis.del(`contests:active:${userId.toString()}`);
