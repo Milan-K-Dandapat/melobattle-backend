@@ -662,7 +662,10 @@ exports.getBattleQuestions = async (req, res) => {
 
     const alreadyPlayed = false;
 
-    const quizData = await contestService.getArenaQuestions(contest._id);
+    const quizData = await contestService.getArenaQuestions(
+  contest._id,
+  userId   // 🔥 PASS USER ID
+);
 
 /* =========================================
    🔐 APPLY QUESTION + OPTION SHUFFLING

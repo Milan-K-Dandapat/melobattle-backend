@@ -212,7 +212,7 @@ if (!contest.isInstantBattle) {
  * 🔥 UPDATED: MANUAL ARENA QUESTION DISPATCHER
  * Optimized to prevent "Arena Sync Failed" by ensuring questions are ready and battle is LIVE.
  */
-exports.getArenaQuestions = async (contestId) => {
+exports.getArenaQuestions = async (contestId, userId) => {
   try {
     /**
      * 🔥 MANUAL SYNC: Targeted Retrieval
@@ -223,7 +223,15 @@ exports.getArenaQuestions = async (contestId) => {
     if (!contest) {
       throw new Error("Arena signal not found");
     }
-
+// 🔐 HARD LOCK: BLOCK RE-ENTRY AFTER COMPLETION
+if (
+  contest.completedParticipants &&
+  contest.completedParticipants.some(
+    id => id.toString() === userId.toString()
+  )
+) {
+  throw new Error("Access Denied: Battle already completed");
+}
     // 🔥 CRITICAL: Prevent fetching questions if the battle hasn't technically started.
  const now = new Date();
 
