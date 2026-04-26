@@ -1,4 +1,3 @@
-const Contest = require("./contest.model");
 const redis = require("../../config/redis");
 const User = require("../user/user.model");
 const contestService = require("./contest.service");
@@ -96,6 +95,7 @@ if (isInstantBattle) {
   start = new Date();
 } else {
 // 🔥 FIX TIMEZONE ISSUE (VERY IMPORTANT)
+let start;
 
 if (isInstantBattle) {
   start = new Date();
@@ -1007,6 +1007,9 @@ if (io) {
 
 }
 
+// 4️⃣ Lock contest for this user
+const contest = await Contest.findById(contestId);
+
 // add user to completed list
 await Contest.updateOne(
   { _id: contestId },
@@ -1023,6 +1026,7 @@ if (
   updatedContest.joinedCount = updatedContest.maxParticipants; // 🔥 FIX COUNT
   await updatedContest.save();
 }
+await contest.save();
 
 // 5️⃣ Clear cache
 await redis.del(`contests:active:${userId}`);
@@ -1238,22 +1242,21 @@ exports.submitScore = async (req, res) => {
       timeTaken: 0
     });
 
-// 3️⃣ Mark completed
+    // 3️⃣ Mark completed
 await Contest.updateOne(
   { _id: contestId },
   { $addToSet: { completedParticipants: userId } }
 );
 
-// 🔥 GET UPDATED CONTEST (VERY IMPORTANT)
-const updatedContest = await Contest.findById(contestId);
-
 // 🔥 AUTO COMPLETE WHEN FULL
+const contest = await Contest.findById(contestId);
+
 if (
-  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
+  contest.completedParticipants.length + 1 >= contest.maxParticipants
 ) {
-  updatedContest.status = "COMPLETED";
-  updatedContest.joinedCount = updatedContest.maxParticipants;
-  await updatedContest.save();
+  contest.status = "COMPLETED";
+  contest.joinedCount = contest.maxParticipants;
+  await contest.save();
 }
 
     return res.json({

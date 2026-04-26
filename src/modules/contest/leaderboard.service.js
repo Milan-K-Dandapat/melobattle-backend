@@ -129,9 +129,7 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     })
       .populate("userId", "name username avatar rating totalWins")
       .sort({
-  score: -1,
-  accuracy: -1,
-  completionTime: 1
+  score: -1
 })
       .limit(limit)
       .lean();
@@ -208,19 +206,17 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
 }));
 
 // 🔥 SAVE RANK + PRIZE TO DB
-await Promise.all(
-  finalPlayers.map(player =>
-    Participant.findOneAndUpdate(
-      { contestId: objectContestId, userId: player.userId },
-      {
-        $set: {
-          rank: player.rank,
-          prizeWon: player.prizeWon
-        }
+for (const player of finalPlayers) {
+  await Participant.findOneAndUpdate(
+    { contestId: objectContestId, userId: player.userId },
+    {
+      $set: {
+        rank: player.rank,
+        prizeWon: player.prizeWon
       }
-    )
-  )
-);
+    }
+  );
+}
 
 return finalPlayers;
 
@@ -228,19 +224,17 @@ return finalPlayers;
     }
 
     // 🔥 Save ranks even if prize pool is zero
-await Promise.all(
-  rankedPlayers.map(player =>
-    Participant.findOneAndUpdate(
-      { contestId: objectContestId, userId: player.userId },
-      {
-        $set: {
-          rank: player.rank,
-          prizeWon: 0
-        }
+for (const player of rankedPlayers) {
+  await Participant.findOneAndUpdate(
+    { contestId: objectContestId, userId: player.userId },
+    {
+      $set: {
+        rank: player.rank,
+        prizeWon: 0
       }
-    )
-  )
-);
+    }
+  );
+}
 
 return rankedPlayers;
 
@@ -256,14 +250,11 @@ return rankedPlayers;
 exports.getUserRank = async (contestId, userId) => {
   try {
     // Check DB first for finalized rank
-    const participant = await Participant.findOne({
-  contestId: new mongoose.Types.ObjectId(contestId),
-  userId
-});
+    const participant = await Participant.findOne({ contestId, userId });
     if (participant && participant.rank) return participant.rank;
 
     // Fallback to Redis for live rank
-    const rank = await redis.zrevrank(getKey(contestId), userId.toString());
+    const rank = await redis.zrevrank(getKey(contestId), userId);
     return rank !== null ? rank + 1 : null;
   } catch (error) {
     return null;
