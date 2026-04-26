@@ -41,12 +41,20 @@ exports.runCode = async (req, res) => {
       data: {
   language_id: LANGUAGE_IDS[language],
   source_code: sourceCode,
-  stdin: testCase.input,
+  stdin: input ?? "" // ✅ correct
 }
     };
 
     const response = await axios.request(options);
     const { stdout, stderr, compile_output, status, time, memory } = response.data;
+    if (stderr) {
+  return res.json({
+    success: true,
+    status: "Error",
+    output: stderr,
+    isError: true
+  });
+}
 
     // 3 means "Accepted" in Judge0
     if (status.id !== 3) { 
