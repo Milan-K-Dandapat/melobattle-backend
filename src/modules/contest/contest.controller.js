@@ -312,36 +312,38 @@ exports.getAllContests = async (req, res) => {
 
     const formattedContests = contests.map((contest) => {
 
-     const dynamicStatus = (() => {
+const dynamicStatus = (() => {
+        // 1. If explicitly finished or processed in DB, it's COMPLETED
+        if (contest.status === "COMPLETED" || contest.status === "ARCHIVED" || contest.isProcessed) {
+          return "COMPLETED";
+        }
 
-  // 🔥 FIX: Instant battles never expire
-  if (contest.isInstantBattle) {
-    return "LIVE";
-  }
+        // 2. 🔥 THE RULE: Instant battles stay LIVE unless they are full
+        if (contest.isInstantBattle) {
+          const currentJoined = contest.joinedCount || 0;
+          const maxParticipants = contest.maxParticipants || 1;
+          return currentJoined >= maxParticipants ? "COMPLETED" : "LIVE";
+        }
 
-  if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
-    return contest.status;
-  }
+        // 3. Regular Timed Battle Logic
+        if (contest.startTime && now < new Date(contest.startTime)) {
+          return "UPCOMING";
+        }
 
-  if (contest.startTime && now < new Date(contest.startTime)) {
-    return "UPCOMING";
-  }
+        if (
+          contest.startTime &&
+          contest.endTime &&
+          now >= new Date(contest.startTime) &&
+          now <= new Date(contest.endTime)
+        ) {
+          return "LIVE";
+        }
 
-  if (
-    contest.startTime &&
-    contest.endTime &&
-    now >= new Date(contest.startTime) &&
-    now <= new Date(contest.endTime)
-  ) {
-    return "LIVE";
-  }
+        if (contest.endTime && now > new Date(contest.endTime)) {
+          return "PROCESSING";
+        }
 
-  if (!contest.isInstantBattle && contest.endTime && now > new Date(contest.endTime)) {
-  return "PROCESSING";
-}
-
-  return contest.status;
-
+        return contest.status;
       })();
 
       let computedPrizePool = 0;
@@ -377,13 +379,13 @@ exports.getAllContests = async (req, res) => {
             )
           : false,
 
-        isCompletedByUser: Array.isArray(contest.completedParticipants)
-  ? contest.completedParticipants.some(
-      (id) => id.toString() === userId
-    )
-  : false,
-// 🔥 ADD THIS EXACT LINE BELOW
-completedParticipants: contest.completedParticipants || []
+isCompletedByUser: Array.isArray(contest.completedParticipants)
+          ? contest.completedParticipants.some((id) => id.toString() === userId)
+          : false,
+
+        // ✅ ADD/UPDATE THESE LINES TO ENSURE SYNC
+        joinedCount: Array.isArray(contest.participants) ? contest.participants.length : (contest.joinedCount || 0),
+        completedParticipants: contest.completedParticipants || []
       };
       
     });
@@ -1308,26 +1310,25 @@ const updatedContest = await Contest.findByIdAndUpdate(
 
 console.log("✅ User added to completedParticipants:", updatedContest.completedParticipants);
 
-await redis.del(`contests:active:${userId.toString()}`);
-// 🔥 AUTO COMPLETE WHEN FULL
-const contest = await Contest.findById(contestId);
 // 🔥 AUTO COMPLETE WHEN FULL (Admin Panel Fix)
-// We check updatedContest directly because it contains the freshest data
-if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
-  console.log(`🎯 Contest ${contestId} reached max participants. Closing...`);
-  
-  updatedContest.status = "COMPLETED";
-  updatedContest.isProcessed = true; // ✅ Force move to 'Closed' section
-  updatedContest.joinedCount = updatedContest.maxParticipants;
-  
-  // Use save() so the model's status logic and prize distribution trigger
-  await updatedContest.save();
+    if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
+      console.log(`🎯 Contest ${contestId} reached max participants. Closing...`);
+      
+      updatedContest.status = "COMPLETED";
+      updatedContest.isProcessed = true; 
+      updatedContest.joinedCount = updatedContest.maxParticipants;
+      
+      await updatedContest.save();
+      await closeContestAndDistributePrizes(updatedContest, req.app.get("io"));
+    }
 
-  // Trigger Payouts & Leaderboard Finalization
-  await closeContestAndDistributePrizes(updatedContest, req.app.get("io"));
-}
+    // 4️⃣ FINAL CACHE PURGE
+    await redis.del(`contests:active:${userId.toString()}`);
 
-await redis.del(`contests:active:${userId.toString()}`);
+    return res.json({
+      success: true,
+      message: "Score saved"
+    });
 
 return res.json({
   success: true,
