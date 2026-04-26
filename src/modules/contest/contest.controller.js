@@ -856,7 +856,7 @@ const updatedContest = await Contest.findById(contestId);
 if (
   updatedContest.participants.length >= updatedContest.maxParticipants
 ) {
-  updatedContest.status = "COMPLETED";
+  updatedContest.status = "LIVE"; // ✅ KEEP LIVE (NOT COMPLETED)
 
   await updatedContest.save();
 
