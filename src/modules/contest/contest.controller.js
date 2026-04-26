@@ -1049,21 +1049,27 @@ await Contest.updateOne(
 );
 
 // 🔥 AUTO COMPLETE CONTEST WHEN FULL
-const updatedContest = await Contest.findById(contestId);
+// 🔥 MARK COMPLETED AND GET FRESH DATA IMMEDIATELY
+const updatedContest = await Contest.findByIdAndUpdate(
+  contestId,
+  { $addToSet: { completedParticipants: userId } },
+  { new: true } // This ensures we get the array with YOUR id already inside
+);
 
-if (
-  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
-) {
+// 🔥 CHECK IF BATTLE IS NOW FULL
+if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
   updatedContest.status = "COMPLETED";
   updatedContest.joinedCount = updatedContest.maxParticipants;
+  
+  // Save the "COMPLETED" status to DB so Admin Panel sees it
   await updatedContest.save();
 
-  // 🔥 ADD THIS (VERY IMPORTANT)
-  await closeContestAndDistributePrizes(
-    updatedContest,
-    req.app.get("io")
-  );
+  // Trigger Payouts & Leaderboard Finalization
+  await closeContestAndDistributePrizes(updatedContest, req.app.get("io"));
 }
+
+// 4️⃣ KILL CACHE (Only need this once at the very end)
+await redis.del(`contests:active:${userId.toString()}`);
 await contest.save();
 
 // 5️⃣ Clear cache and ensure database is synced
