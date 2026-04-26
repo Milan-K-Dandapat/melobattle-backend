@@ -1,3 +1,4 @@
+const Contest = require("./contest.model");
 const redis = require("../../config/redis");
 const User = require("../user/user.model");
 const contestService = require("./contest.service");
@@ -1008,24 +1009,10 @@ if (io) {
 }
 
 // 4️⃣ Lock contest for this user
-const contest = await Contest.findById(contestId);
-
-// add user to completed list
 await Contest.updateOne(
   { _id: contestId },
   { $addToSet: { completedParticipants: userId } }
 );
-
-// 🔥 AUTO COMPLETE CONTEST WHEN FULL
-const updatedContest = await Contest.findById(contestId);
-
-if (
-  updatedContest.completedParticipants.length >= updatedContest.maxParticipants
-) {
-  updatedContest.status = "COMPLETED";
-  updatedContest.joinedCount = updatedContest.maxParticipants; // 🔥 FIX COUNT
-  await updatedContest.save();
-}
 await contest.save();
 
 // 5️⃣ Clear cache
@@ -1243,21 +1230,10 @@ exports.submitScore = async (req, res) => {
     });
 
     // 3️⃣ Mark completed
-await Contest.updateOne(
-  { _id: contestId },
-  { $addToSet: { completedParticipants: userId } }
-);
-
-// 🔥 AUTO COMPLETE WHEN FULL
-const contest = await Contest.findById(contestId);
-
-if (
-  contest.completedParticipants.length + 1 >= contest.maxParticipants
-) {
-  contest.status = "COMPLETED";
-  contest.joinedCount = contest.maxParticipants;
-  await contest.save();
-}
+    await Contest.updateOne(
+      { _id: contestId },
+      { $addToSet: { completedParticipants: userId } }
+    );
 
     return res.json({
       success: true,
