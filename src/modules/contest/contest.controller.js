@@ -340,9 +340,8 @@ exports.getAllContests = async (req, res) => {
   }
 
   if (!contest.isInstantBattle && contest.endTime && now > new Date(contest.endTime)) {
-  return "PROCESSING";
+  return "COMPLETED";
 }
-
   return contest.status;
 
       })();
@@ -371,6 +370,7 @@ exports.getAllContests = async (req, res) => {
   mode: contest.mode || "battle",   // ✅ ADD EXACTLY HERE
 
   status: dynamicStatus,
+  isClosed: dynamicStatus === "COMPLETED",
   prizePool: computedPrizePool,
 
         // 🔥 USER STATUS FLAGS
