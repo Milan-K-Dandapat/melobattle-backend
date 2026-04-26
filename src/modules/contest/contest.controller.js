@@ -1293,12 +1293,15 @@ exports.submitScore = async (req, res) => {
       timeTaken: timeTaken || 0
     });
 
-    // 3️⃣ Mark completed
-await Contest.updateOne(
-  { _id: contestId },
-  { $addToSet: { completedParticipants: userId } }
+// 3️⃣ Mark completed (CRITICAL FIX)
+const updatedContest = await Contest.findByIdAndUpdate(
+  contestId,
+  { $addToSet: { completedParticipants: userId } },
+  { new: true }
 );
-// 🔥 KILL THE REDIS CACHE IMMEDIATELY AFTER SAVING
+
+console.log("✅ User added to completedParticipants:", updatedContest.completedParticipants);
+
 await redis.del(`contests:active:${userId.toString()}`);
 // 🔥 AUTO COMPLETE WHEN FULL
 const contest = await Contest.findById(contestId);
