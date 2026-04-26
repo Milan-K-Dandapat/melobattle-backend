@@ -292,9 +292,7 @@ contestSchema.pre("save", async function () {
  */
 contestSchema.methods.getDynamicStatus = function () {
   const now = new Date();
-if (this.isInstantBattle) {
-    return "LIVE";
-  }
+
   if (this.status === "COMPLETED" || this.status === "ARCHIVED") {
     return this.status;
   }

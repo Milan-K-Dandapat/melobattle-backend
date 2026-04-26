@@ -319,12 +319,9 @@ exports.getAllContests = async (req, res) => {
     return "LIVE";
   }
 
-  if (
-  contest.status === "COMPLETED" ||
-  (contest.completedParticipants?.length >= contest.maxParticipants)
-) {
-  return "COMPLETED";
-}
+  if (contest.status === "COMPLETED" || contest.status === "ARCHIVED") {
+    return contest.status;
+  }
 
   if (contest.startTime && now < new Date(contest.startTime)) {
     return "UPCOMING";
@@ -340,8 +337,9 @@ exports.getAllContests = async (req, res) => {
   }
 
   if (!contest.isInstantBattle && contest.endTime && now > new Date(contest.endTime)) {
-  return "COMPLETED";
+  return "PROCESSING";
 }
+
   return contest.status;
 
       })();
@@ -370,7 +368,6 @@ exports.getAllContests = async (req, res) => {
   mode: contest.mode || "battle",   // ✅ ADD EXACTLY HERE
 
   status: dynamicStatus,
-  isClosed: dynamicStatus === "COMPLETED",
   prizePool: computedPrizePool,
 
         // 🔥 USER STATUS FLAGS
@@ -567,16 +564,6 @@ else if (!c.isInstantBattle && now > new Date(c.endTime) && status !== "COMPLETE
 exports.exportContestCSV = async (req, res) => {
   try {
     const contestId = req.params.id;
-    const mode = req.query.mode || "battle"; // 🔥 IMPORTANT
-
-    const contest = await Contest.findById(contestId);
-
-    if (!contest) {
-      return res.status(404).json({
-        success: false,
-        message: "Contest not found"
-      });
-    }
 
     const participants = await Participant.find({ contestId })
       .populate("userId", "name username email")
@@ -586,61 +573,24 @@ exports.exportContestCSV = async (req, res) => {
     if (!participants || participants.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No data found"
+        message: "No warriors found in this arena"
       });
     }
 
-    let csv = "";
+    let csv =
+"Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
 
-    /* =========================================
-        ✅ NORMAL BATTLE CSV (DO NOT TOUCH)
-    ========================================= */
-    if (mode === "battle") {
-      csv =
-        "Rank,Username,Email,Score,Accuracy,CompletionTime,PrizeWon,JoinedAt,PlayedAt,Device,IP\n";
+    participants.forEach((p, index) => {
+      const username = p.userId?.username || p.userId?.name || "Warrior";
+      const email = p.userId?.email || "N/A";
 
-      participants.forEach((p, index) => {
-        const username = p.userId?.username || p.userId?.name || "Warrior";
-        const email = p.userId?.email || "N/A";
-
-        csv += `${p.rank || index + 1},
-${username},
-${email},
-${p.score || 0},
-${p.accuracy || 0},
-${p.language || ""},
-"${(p.code || "").replace(/"/g, '""')}",
-${p.completionTime || 0},
-${p.prizeWon || 0},
-${p.joinedAt || ""},
-${p.playedAt || ""},
-${p.deviceInfo || ""},
-${p.ipAddress || ""}
-\n`;
-      });
-    }
-
-    /* =========================================
-        🔥 EXAM CSV (NEW)
-    ========================================= */
-    else if (mode === "exam") {
-      csv =
-        "Rank,UserID,Username,Email,Score,Accuracy,TimeTaken,Status,SubmittedAt\n";
-
-      participants.forEach((p, index) => {
-        const username = p.userId?.username || p.userId?.name || "Student";
-        const email = p.userId?.email || "N/A";
-
-        const status = p.playedAt ? "SUBMITTED" : "NOT_SUBMITTED";
-
-        csv += `${p.rank || index + 1},${p.userId?._id || ""},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${status},${p.playedAt || ""}\n`;
-      });
-    }
+      csv += `${p.rank || index + 1},${username},${email},${p.score || 0},${p.accuracy || 0},${p.completionTime || 0},${p.prizeWon || 0},${p.joinedAt || ""},${p.playedAt || ""},${p.deviceInfo || ""},${p.ipAddress || ""}\n`;
+    });
 
     res.setHeader("Content-Type", "text/csv");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=${mode}_contest_${contestId}.csv`
+      `attachment; filename=contest_${contestId}.csv`
     );
 
     res.status(200).send(csv);
@@ -897,27 +847,7 @@ exports.joinContest = async (req, res) => {
       contestId,
       io
     );
-// 🔥 AUTO COMPLETE WHEN FULL (JOIN BASED)
-const updatedContest = await Contest.findById(contestId);
 
-if (
-  updatedContest.participants.length >= updatedContest.maxParticipants
-) {
-  updatedContest.status = "LIVE"; // ✅ KEEP LIVE (NOT COMPLETED)
-
-  await updatedContest.save();
-
-  // 🔥 CLEAR CACHE
-  const keys = await redis.keys("contests:*");
-  if (keys.length) await redis.del(keys);
-
-  // 🔥 OPTIONAL SOCKET UPDATE
-  if (io) {
-    io.emit("CONTEST_FINALIZED", {
-      contestId: updatedContest._id
-    });
-  }
-}
     if (io && result) {
       io.emit("PLAYER_JOINED_UPDATE", {
         contestId,
@@ -1071,13 +1001,11 @@ await Participant.findOneAndUpdate(
   { contestId, userId },
   {
     score,
-    accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
-    completionTime: 0,
+    accuracy,
+    completionTime: timeTaken,
     playedAt: new Date(),
-
-    // 🔥 ADD THIS
-    code: code || "",
-    language: language || ""
+    deviceInfo: req.headers["user-agent"] || "",
+    ipAddress: req.ip
   },
   {
     new: true,
@@ -1135,9 +1063,7 @@ if (
 await contest.save();
 
 // 5️⃣ Clear cache
-// 🔥 CLEAR ALL CONTEST CACHE (IMPORTANT)
-const keys = await redis.keys("contests:*");
-if (keys.length) await redis.del(keys);
+await redis.del(`contests:active:${userId}`);
 
 // ✅ Final response
 return res.json({
@@ -1326,7 +1252,7 @@ exports.closeContestAndDistributePrizes = closeContestAndDistributePrizes;
 // 🔥 SAVE SCORE FROM LIVE CODING (IMPORTANT)
 exports.submitScore = async (req, res) => {
   try {
-    const { contestId, score, passedCount, totalCases, code, language } = req.body;
+    const { contestId, score, passedCount, totalCases } = req.body;
     const userId = req.user._id;
 
     // 1️⃣ Save score in Participant

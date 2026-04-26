@@ -57,19 +57,11 @@ const participantSchema = new mongoose.Schema(
     ipAddress: {
       type: String,
       default: ""
-    },
-    code: {
-  type: String,
-  default: ""
-},
-language: {
-  type: String,
-  default: ""
-},
+    }
   },
   {
     timestamps: true
-  },
+  }
 );
 
 /* prevents duplicate participant per contest */
