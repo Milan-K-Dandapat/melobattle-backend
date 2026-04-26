@@ -26,6 +26,7 @@ router.get("/", protect, contestController.getAllContests);
 router.post("/:contestId/join", protect, contestController.joinContest);
 router.post("/start-battle", protect, contestController.startBattle);
 router.post("/submit", protect, contestController.submitBattle);
+router.post("/submit-score", protect, contestController.submitScore);
 router.get("/:contestId/leaderboard", protect, contestController.getLeaderboard);
 router.get("/battle/:id", protect, contestController.getBattleQuestions);
 

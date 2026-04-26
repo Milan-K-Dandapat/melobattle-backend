@@ -80,13 +80,13 @@ exports.updateLeaderboard = async (
 
     // 2. 🔥 PERSISTENCE: Save/Update individual match score in MongoDB
     // This allows the "View Results" button to work after the Redis key expires.
-  await Participant.findOneAndUpdate(
+await Participant.findOneAndUpdate(
   { contestId: new mongoose.Types.ObjectId(contestId), userId },
   {
+    $max: { score: score }, // ✅ IMPORTANT FIX
     $set: {
       contestId: new mongoose.Types.ObjectId(contestId),
       userId,
-      score,
       accuracy,
       completionTime: completionTime || 0
     }
@@ -129,10 +129,8 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
     })
       .populate("userId", "name username avatar rating totalWins")
       .sort({
-        score: -1,
-        accuracy: -1,
-        completionTime: 1,
-      })
+  score: -1
+})
       .limit(limit)
       .lean();
 
@@ -164,7 +162,7 @@ exports.getTopPlayers = async (contestId, limit = 50) => {
         username: p.userId?.username || p.userId?.name || "Warrior",
         avatar: p.userId?.avatar || null,
         rating: p.userId?.rating || 1000,
-        score: p.score,
+        score: Number(p.score || 0),
         accuracy: p.accuracy,
         time: p.completionTime,
         prizeWon: 0

@@ -1199,3 +1199,49 @@ async function closeContestAndDistributePrizes(contest, io) {
 
 // 🔥 EXPORT HELPER FOR MANUAL/ADMIN ROUTE
 exports.closeContestAndDistributePrizes = closeContestAndDistributePrizes;
+// 🔥 SAVE SCORE FROM LIVE CODING (IMPORTANT)
+exports.submitScore = async (req, res) => {
+  try {
+    const { contestId, score, passedCount, totalCases } = req.body;
+    const userId = req.user._id;
+
+    // 1️⃣ Save score in Participant
+    await Participant.findOneAndUpdate(
+      { contestId, userId },
+      {
+        score,
+        accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
+        completionTime: 0,
+        playedAt: new Date()
+      },
+      { upsert: true, new: true }
+    );
+
+    // 2️⃣ Update leaderboard / XP
+    await leaderboardService.saveUserScore({
+      userId,
+      contestId,
+      score,
+      accuracy: Math.round((passedCount / (totalCases || 1)) * 100),
+      timeTaken: 0
+    });
+
+    // 3️⃣ Mark completed
+    await Contest.updateOne(
+      { _id: contestId },
+      { $addToSet: { completedParticipants: userId } }
+    );
+
+    return res.json({
+      success: true,
+      message: "Score saved"
+    });
+
+  } catch (err) {
+    console.error("🔥 submitScore error:", err.message);
+    res.status(500).json({
+      success: false,
+      message: "Score save failed"
+    });
+  }
+};
