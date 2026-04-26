@@ -142,8 +142,7 @@ const passed = data.status.id === 3 && actualOutput === expectedOutput;
   isHidden: testCase.isHidden
 });
 
-      // LeetCode standard: Break early if one test case fails
-      if (!passed) break;
+      // ❌ DO NOT BREAK → run all test cases for "Check"
     }
 
     const allPassed = passedCount === totalCases;
