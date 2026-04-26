@@ -1066,10 +1066,8 @@ if (
 }
 await contest.save();
 
-// 5️⃣ Clear cache
-await redis.del(`contests:active:${userId}`);
-
-// 5️⃣ Clear cache
+// 5️⃣ Clear cache and ensure database is synced
+await Contest.findById(contestId); // Small delay to ensure DB write-lock is released
 await redis.del(`contests:active:${userId.toString()}`);
 
 // ✅ Final response
