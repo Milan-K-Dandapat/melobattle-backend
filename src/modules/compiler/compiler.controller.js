@@ -7,7 +7,8 @@ const LANGUAGE_IDS = {
   c: 50,
   cpp: 54,
   java: 62,
-  python: 71
+  python: 71,
+  javascript: 63 // ✅ ADD THIS (Node.js)
 };
 
 // 🔥 Add these to your .env file later for production
@@ -21,9 +22,12 @@ exports.runCode = async (req, res) => {
   try {
     const { language, sourceCode, input } = req.body;
 
-    if (!LANGUAGE_IDS[language]) {
-      return res.status(400).json({ success: false, message: "Unsupported language" });
-    }
+   if (!LANGUAGE_IDS[language]) {
+  return res.status(400).json({
+    success: false,
+    message: `Unsupported language: ${language}`
+  });
+}
 
     const options = {
       method: 'POST',
@@ -35,10 +39,10 @@ exports.runCode = async (req, res) => {
         'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
       },
       data: {
-        language_id: LANGUAGE_IDS[language],
-        source_code: sourceCode,
-        stdin: input || ""
-      }
+  language_id: LANGUAGE_IDS[language],
+  source_code: sourceCode,
+  stdin: testCase.input,
+}
     };
 
     const response = await axios.request(options);
@@ -113,17 +117,22 @@ exports.submitCode = async (req, res) => {
       const response = await axios.request(options);
       const data = response.data;
 
-      const passed = data.status.id === 3; // 3 = Accepted
+      const actualOutput = (data.stdout || "").trim();
+const expectedOutput = (testCase.expectedOutput || "").trim();
+
+const passed = data.status.id === 3 && actualOutput === expectedOutput;
       if (passed) passedCount++;
 
       results.push({
-        testCase: i + 1,
-        passed,
-        status: data.status.description,
-        time: data.time,
-        memory: data.memory,
-        isHidden: testCase.isHidden
-      });
+  testCase: i + 1,
+  passed,
+  status: data.status.description,
+  output: data.stdout,
+  expected: testCase.expectedOutput,
+  time: data.time,
+  memory: data.memory,
+  isHidden: testCase.isHidden
+});
 
       // LeetCode standard: Break early if one test case fails
       if (!passed) break;
