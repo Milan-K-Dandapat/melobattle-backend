@@ -122,9 +122,27 @@ exports.submitCode = async (req, res) => {
         }
       };
 
-      const response = await axios.request(options);
-      const data = response.data;
+     let data;
 
+try {
+  const response = await axios.request(options);
+  data = response.data;
+} catch (error) {
+  console.log("🔥 JUDGE0 ERROR:", error.response?.status);
+
+  if (error.response?.status === 429) {
+    return res.status(429).json({
+      success: false,
+      message: "Server busy 🚫 Try again in 2 seconds"
+    });
+  }
+
+  return res.status(500).json({
+    success: false,
+    message: "Compiler failed"
+  });
+}
+  await new Promise(res => setTimeout(res, 800)); // 🔥 delay
       const actualOutput = (data.stdout || "").trim();
 const expectedOutput = (testCase.expectedOutput || "").trim();
 
