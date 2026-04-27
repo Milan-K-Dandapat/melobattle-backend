@@ -477,13 +477,9 @@ const formattedRoster = roster.map((p, index) => ({
     )
   : false;
 
-   const examUserId = req.query.examUserId || null;
-
-const finalUserId = examUserId || userId;
-
-const isCompletedByUser = Array.isArray(contest.completedParticipants)
-  ? contest.completedParticipants.some(id => id.toString() === finalUserId.toString())
-  : false;
+    const isCompletedByUser = Array.isArray(contest.completedParticipants)
+      ? contest.completedParticipants.some(id => id.toString() === userId)
+      : false;
 
     res.json({
       success: true,
@@ -1324,11 +1320,9 @@ exports.submitScore = async (req, res) => {
     });
 
 // 3️⃣ Mark completed (CRITICAL FIX)
-const finalUserId = examUserId || userId;
-
 const updatedContest = await Contest.findByIdAndUpdate(
   contestId,
-  { $addToSet: { completedParticipants: finalUserId } },
+  { $addToSet: { completedParticipants: userId } },
   { new: true }
 );
 
