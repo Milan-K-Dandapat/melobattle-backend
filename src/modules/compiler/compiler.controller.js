@@ -12,7 +12,7 @@ const LANGUAGE_IDS = {
 };
 
 // 🔥 Add these to your .env file later for production
-const JUDGE0_URL = process.env.JUDGE0_URL || "https://judge0-ce.p.rapidapi.com";
+const JUDGE0_URL = "https://ce.judge0.com";
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || ""; // You will need a free RapidAPI key for Judge0
 
 /**
@@ -33,11 +33,9 @@ exports.runCode = async (req, res) => {
       method: 'POST',
       url: `${JUDGE0_URL}/submissions`,
       params: { base64_encoded: 'false', wait: 'true' },
-      headers: {
-        'content-type': 'application/json',
-        'X-RapidAPI-Key': RAPIDAPI_KEY,
-        'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
-      },
+     headers: {
+  'content-type': 'application/json'
+},
       data: {
   language_id: LANGUAGE_IDS[language],
   source_code: sourceCode,
@@ -109,11 +107,9 @@ exports.submitCode = async (req, res) => {
         method: 'POST',
         url: `${JUDGE0_URL}/submissions`,
         params: { base64_encoded: 'false', wait: 'true' },
-        headers: {
-          'content-type': 'application/json',
-          'X-RapidAPI-Key': RAPIDAPI_KEY,
-          'X-RapidAPI-Host': 'judge0-ce.p.rapidapi.com'
-        },
+      headers: {
+  'content-type': 'application/json'
+},
         data: {
           language_id: LANGUAGE_IDS[language],
           source_code: sourceCode,
