@@ -1046,13 +1046,6 @@ if (io) {
 
 }
 
-
-// add user to completed list
-await Contest.updateOne(
-  { _id: contestId },
-  { $addToSet: { completedParticipants: userId } }
-);
-
 // 🔥 AUTO COMPLETE CONTEST WHEN FULL
 // 🔥 MARK COMPLETED AND GET FRESH DATA IMMEDIATELY
 // 3️⃣ Mark completed (STRICT SYNC FIX)
@@ -1081,16 +1074,13 @@ if (contestToUpdate) {
 // 4️⃣ KILL CACHE FOR THIS USER IMMEDIATELY
 await redis.del(`contests:active:${userId.toString()}`);
 
-// 🔥 CHECK IF BATTLE IS NOW FULL
-if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
-  updatedContest.status = "COMPLETED";
-  updatedContest.joinedCount = updatedContest.maxParticipants;
-  
-  // Save the "COMPLETED" status to DB so Admin Panel sees it
-  await updatedContest.save();
+if (contestToUpdate.completedParticipants.length >= contestToUpdate.maxParticipants) {
+  contestToUpdate.status = "COMPLETED";
+  contestToUpdate.isProcessed = true;
 
-  // Trigger Payouts & Leaderboard Finalization
-  await closeContestAndDistributePrizes(updatedContest, req.app.get("io"));
+  await contestToUpdate.save();
+
+  await closeContestAndDistributePrizes(contestToUpdate, req.app.get("io"));
 }
 
 // 4️⃣ KILL CACHE (Only need this once at the very end)
