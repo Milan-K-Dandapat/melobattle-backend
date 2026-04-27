@@ -320,10 +320,13 @@ const dynamicStatus = (() => {
 
         // 2. 🔥 THE RULE: Instant battles stay LIVE unless they are full
         if (contest.isInstantBattle) {
-          const currentJoined = contest.joinedCount || 0;
-          const maxParticipants = contest.maxParticipants || 1;
-          return currentJoined >= maxParticipants ? "COMPLETED" : "LIVE";
-        }
+  // 🔥 Only mark as COMPLETED if the participants are actually finished, 
+  // otherwise keep it LIVE so Admin can see it.
+  const finishedCount = Array.isArray(contest.completedParticipants) ? contest.completedParticipants.length : 0;
+  const maxParticipants = contest.maxParticipants || 1;
+  
+  return (finishedCount >= maxParticipants && finishedCount > 0) ? "COMPLETED" : "LIVE";
+}
 
         // 3. Regular Timed Battle Logic
         if (contest.startTime && now < new Date(contest.startTime)) {
