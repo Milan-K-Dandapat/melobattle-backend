@@ -1055,11 +1055,31 @@ await Contest.updateOne(
 
 // 🔥 AUTO COMPLETE CONTEST WHEN FULL
 // 🔥 MARK COMPLETED AND GET FRESH DATA IMMEDIATELY
-const updatedContest = await Contest.findByIdAndUpdate(
-  contestId,
-  { $addToSet: { completedParticipants: userId } },
-  { new: true } // This ensures we get the array with YOUR id already inside
-);
+// 3️⃣ Mark completed (STRICT SYNC FIX)
+// Use findOne to ensure we have the full document instance
+const contestToUpdate = await Contest.findById(contestId);
+
+if (contestToUpdate) {
+  // Add user to the array if they aren't already there
+  if (!contestToUpdate.completedParticipants.includes(userId)) {
+    contestToUpdate.completedParticipants.push(userId);
+  }
+  
+  // 🔥 Force joinedCount to be accurate
+  contestToUpdate.joinedCount = contestToUpdate.participants.length;
+
+  // 🔥 Check if this was the last person needed
+  if (contestToUpdate.completedParticipants.length >= contestToUpdate.maxParticipants) {
+     contestToUpdate.status = "COMPLETED";
+     contestToUpdate.isProcessed = true;
+  }
+
+  await contestToUpdate.save();
+  console.log("✅ User completion synced to DB for:", contestId);
+}
+
+// 4️⃣ KILL CACHE FOR THIS USER IMMEDIATELY
+await redis.del(`contests:active:${userId.toString()}`);
 
 // 🔥 CHECK IF BATTLE IS NOW FULL
 if (updatedContest.completedParticipants.length >= updatedContest.maxParticipants) {
