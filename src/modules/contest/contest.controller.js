@@ -1365,3 +1365,60 @@ return res.json({
     });
   }
 };
+exports.disqualifyContest = async (req, res) => {
+  try {
+    const { contestId, examUserId } = req.body;
+
+    const userId = examUserId || req.user?._id;
+
+    if (!contestId || !userId) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing contestId or userId"
+      });
+    }
+
+    const contest = await Contest.findById(contestId);
+
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: "Contest not found"
+      });
+    }
+
+    // 🔥 CRITICAL FIX (same as submit)
+    if (!contest.completedParticipants.includes(userId)) {
+      contest.completedParticipants.push(userId);
+    }
+
+    // 🔥 OPTIONAL: track disqualified separately
+    if (!contest.disqualifiedParticipants) {
+      contest.disqualifiedParticipants = [];
+    }
+
+    if (!contest.disqualifiedParticipants.includes(userId)) {
+      contest.disqualifiedParticipants.push(userId);
+    }
+
+    await contest.save();
+
+    // 🔥 CACHE CLEAR (VERY IMPORTANT)
+    const keys = await redis.keys("contests:*");
+    if (keys.length) await redis.del(keys);
+
+    console.log("🚫 User disqualified and marked completed:", userId);
+
+    return res.json({
+      success: true,
+      message: "User disqualified successfully"
+    });
+
+  } catch (error) {
+    console.error("🔥 Disqualify Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Disqualification failed"
+    });
+  }
+};
