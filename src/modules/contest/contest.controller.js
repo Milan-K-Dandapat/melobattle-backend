@@ -1099,7 +1099,12 @@ await contest.save();
 
 // 5️⃣ Clear cache and ensure database is synced
 await Contest.findById(contestId); // Small delay to ensure DB write-lock is released
-await redis.del(`contests:active:${userId.toString()}`);
+// 🔥 KILL ALL CONTEST CACHES (Syncs Admin + Dashboard instantly)
+const keys = await redis.keys("contests:*");
+if (keys.length > 0) {
+  await redis.del(keys);
+}
+console.log("🧹 All contest caches purged for sync.");
 
 // ✅ Final response
 return res.json({
@@ -1346,7 +1351,12 @@ console.log("✅ User added to completedParticipants:", updatedContest.completed
     }
 
     // 4️⃣ FINAL CACHE PURGE
-    await redis.del(`contests:active:${userId.toString()}`);
+    // 🔥 KILL ALL CONTEST CACHES (Syncs Admin + Dashboard instantly)
+const keys = await redis.keys("contests:*");
+if (keys.length > 0) {
+  await redis.del(keys);
+}
+console.log("🧹 All contest caches purged for sync.");
 
     return res.json({
       success: true,
