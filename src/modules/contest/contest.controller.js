@@ -942,7 +942,7 @@ if (io) {
 exports.submitBattle = async (req, res) => {
   try {
     const { contestId, score, accuracy, timeTaken, answers } = req.body;
-    const userId = req.user._id;
+const userId = req.user?._id || req.body.examUserId;
 
 // 🔥 Get contest
 const contest = await Contest.findById(contestId);
@@ -999,12 +999,11 @@ const alreadySubmitted = contest.completedParticipants?.some(
 );
 
 if (alreadySubmitted) {
-  return res.status(400).json({
-    success: false,
-    message: "Combat results already archived"
+  return res.json({
+    success: true,
+    message: "Already submitted"
   });
 }
-
 // 1️⃣ Save participant score
 await Participant.findOneAndUpdate(
   { contestId, userId },
