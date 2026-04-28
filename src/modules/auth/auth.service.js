@@ -18,9 +18,9 @@ const { email, name, picture, uid } = decodedToken;
     if (!user) {
       user = await User.create({
         email,
-        name,
+        name: name + "_" + Date.now(),
         avatar: picture,
-        firebaseUid: uid,
+        firebaseUID: uid,
         role: "USER", // Default role
         walletBalance: 0
       });
