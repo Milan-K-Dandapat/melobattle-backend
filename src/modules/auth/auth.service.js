@@ -8,19 +8,28 @@ exports.verifyGoogleUser = async (idToken) => {
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { email, name, picture, uid } = decodedToken;
 
-    // 2. Find or create the user in your database
-    let user = await User.findOne({ email });
+let user = await User.findOne({ firebaseUID: uid });
 
-    if (!user) {
-      user = await User.create({
-        email,
-        name: `${email.split("@")[0]}_${Date.now()}`,
-        avatar: picture,
-        firebaseUID: uid,
-        role: "USER", // Default role
-        walletBalance: 0
-      });
-    }
+// 🔥 If user exists but email changed (edge case)
+if (!user) {
+  user = await User.findOne({ email });
+}
+
+if (!user) {
+  user = await User.create({
+    email,
+    name: `${email.split("@")[0]}_${Date.now()}`, // guaranteed unique
+    avatar: picture,
+    firebaseUID: uid,
+    role: "USER",
+    walletBalance: 0
+  });
+} else {
+  // 🔥 OPTIONAL: keep user updated
+  user.avatar = picture || user.avatar;
+  user.email = email || user.email;
+  await user.save();
+}
 
     // 3. Generate a local JWT for session management
     const token = jwt.sign(
