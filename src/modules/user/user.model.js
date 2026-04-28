@@ -29,9 +29,7 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true, // No two users can share a name
       trim: true,
-      index: true
     },
     email: {
       type: String,

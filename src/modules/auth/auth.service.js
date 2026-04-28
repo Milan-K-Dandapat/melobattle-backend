@@ -18,7 +18,7 @@ if (!user) {
 if (!user) {
   user = await User.create({
     email,
-    name: `${email.split("@")[0]}_${Date.now()}`, // guaranteed unique
+    name: name || email.split("@")[0],
     avatar: picture,
     firebaseUID: uid,
     role: "USER",
