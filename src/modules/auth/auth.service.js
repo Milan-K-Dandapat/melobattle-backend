@@ -14,7 +14,7 @@ exports.verifyGoogleUser = async (idToken) => {
     if (!user) {
       user = await User.create({
         email,
-        name: email.split("@")[0] + "_" + Math.floor(Math.random() * 1000),
+        name: `${email.split("@")[0]}_${Date.now()}`,
         avatar: picture,
         firebaseUID: uid,
         role: "USER", // Default role
@@ -31,6 +31,7 @@ exports.verifyGoogleUser = async (idToken) => {
 
     return { user, token };
   } catch (error) {
-    throw new Error("Invalid Google Token: " + error.message);
+    console.error("🔥 AUTH ERROR:", error);
+throw error;
   }
 };
