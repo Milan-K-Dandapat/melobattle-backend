@@ -14,7 +14,7 @@ exports.verifyGoogleUser = async (idToken) => {
     if (!user) {
       user = await User.create({
         email,
-        name,
+        name: email.split("@")[0] + "_" + Math.floor(Math.random() * 1000),
         avatar: picture,
         firebaseUID: uid,
         role: "USER", // Default role
