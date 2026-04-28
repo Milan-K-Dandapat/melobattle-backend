@@ -1,5 +1,6 @@
 const rateLimit = require("express-rate-limit");
 const slowDown = require("express-slow-down");
+const { ipKeyGenerator } = require("express-rate-limit");
 
 /* =========================================
    GLOBAL LIMIT
@@ -9,7 +10,7 @@ exports.globalLimiter = rateLimit({
   max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => req.ip, // 🔥 ADD THIS
+  keyGenerator: (req) => ipKeyGenerator(req),
   message: "Too many requests. Please try again later."
 });
 /* =========================================
