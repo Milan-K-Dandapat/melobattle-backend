@@ -4,6 +4,6 @@ const authController = require("./auth.controller");
 const { authLimiter } = require("../../middleware/rateLimit.middleware");
 
 // Using your rate limiter to prevent brute-force token spam
-router.post("/google", authLimiter, authController.googleLogin);
+router.post("/google", authController.googleLogin);
 
 module.exports = router;

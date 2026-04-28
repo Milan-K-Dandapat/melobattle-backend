@@ -5,20 +5,26 @@ const slowDown = require("express-slow-down");
    GLOBAL LIMIT
 ========================================= */
 exports.globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // 1000 requests per IP
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => req.ip, // 🔥 ADD THIS
   message: "Too many requests. Please try again later."
 });
-
 /* =========================================
    AUTH LIMIT (Login / Create User)
 ========================================= */
 exports.authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
-  message: "Too many login attempts. Try again later."
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip, // 🔥 CRITICAL FIX
+  message: {
+    success: false,
+    message: "Too many login attempts. Try again later."
+  }
 });
 
 /* =========================================
