@@ -28,6 +28,7 @@ const examAuthRoutes = require("./modules/examAuth/examAuth.routes");
 
 
 const app = express();
+app.set("trust proxy", 1); // 🔥 IMPORTANT FIX FOR RENDER / PROXY
 
 /* ==============================
     SECURITY & CORS MIDDLEWARE
