@@ -45,11 +45,11 @@ exports.createExamUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
- const newUser = new ExamAuth({
+const newUser = new ExamAuth({
   userId,
   password: hashedPassword,
-  plainPassword: password, // 🔥 ADD THIS LINE
-  contestId
+  plainPassword: password,
+  contestId: new mongoose.Types.ObjectId(contestId) // 🔥 FIX
 });
 
     await newUser.save();
