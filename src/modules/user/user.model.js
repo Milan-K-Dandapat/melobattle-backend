@@ -92,13 +92,14 @@ const userSchema = new mongoose.Schema(
         🔥 UNIQUE PROMO SYSTEM
         Alphanumeric code for secure recruitment
     ========================== */
-    promoCode: {
-      type: String,
-      unique: true, 
-      uppercase: true,
-      trim: true,
-      index: true 
-    },
+   promoCode: {
+  type: String,
+  unique: true,
+  sparse: true, // 🔥 IMPORTANT FIX,
+  uppercase: true,
+  trim: true,
+  index: true
+},
     referredBy: { 
       type: mongoose.Schema.Types.ObjectId, 
       ref: "User", 
